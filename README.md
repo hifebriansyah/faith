@@ -56,4 +56,18 @@ Needs `pip install pillow`. Options: `--size`, `--quality`, `--focus` (where a c
 
 ## Logo and app icons
 
-`logo.svg` is the logo (the crest). `python3 tools/make_icons.py` (needs Pillow) draws it as `logo.png` (1024, transparent) and writes the icons in `icons/` (app icon 192 and 512, a maskable one inside the safe zone, the iOS apple-touch-icon, the 48 px favicon) plus `favicon.ico`. `manifest.webmanifest` and the `<head>` of `index.html` use them, so the page can be installed as an app (Chrome: install; iPhone: Add to Home Screen). Change the colours in `logo.svg` and in `tools/make_icons.py` together, then run the script.
+`logo.svg` is the logo (a circuit line that forms an F, with two amber dots). `python3 tools/make_icons.py` (needs Pillow) draws it as `logo.png` (1024) and writes the icons in `icons/` (app icon 192 and 512, a maskable one inside the safe zone, the iOS apple-touch-icon, the 48 px favicon) plus `favicon.ico`. All of them have a transparent background. `manifest.webmanifest` and the `<head>` of `index.html` use them, so the page can be installed as an app (Chrome: install; iPhone: Add to Home Screen). Change the colours in `logo.svg` and in `tools/make_icons.py` together, then run the script.
+
+## Palette
+
+The colours of the page come from the logo: its three ambers (`#f59e0b` the line, `#fbbf24` and `#d97706` the dots) on warm stone greys. They are CSS variables at the top of `index.html`, a light set and a dark set (it follows the system setting):
+
+| | light | dark |
+|---|---|---|
+| page / sidebar / headers | `#e7e2da` / `#ffffff` / `#f7f3ec` | `#0c0a09` / `#1c1917` / `#292524` |
+| text / muted text | `#1c1917` / `#655e58` | `#fafaf9` / `#a8a29e` |
+| `--accent` (buttons) with `--on-accent` text | `#f59e0b` with `#1c1917` | the same |
+| `--ink` (icons) / `--link` | `#b45309` / `#92400e` | `#fbbf24` / `#fbbf24` |
+| my bubble / their bubble / chat background | `#fadf8f` / `#ffffff` / `#f6efe3` | `#512409` / `#292524` / `#14110f` |
+
+The pairs were checked for WCAG contrast (text 4.5:1 or more on every surface and bubble, on-accent 8:1). The same colours are in `manifest.webmanifest` and the `theme-color` tags. Use the variables, not hex values, in new CSS.

@@ -1,11 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-  <defs>
-    <linearGradient id="grad8" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f97316"/>
-      <stop offset="100%" stop-color="#e11d48"/>
-    </linearGradient>
-  </defs>
-  <!-- Winged / Crest Style F -->
-  <path d="M 40,30 L 160,30 L 130,65 L 85,65 L 85,90 L 140,90 L 115,120 L 85,120 L 85,175 L 40,145 Z" fill="url(#grad8)"/>
-  <path d="M 40,30 L 85,65 L 40,145 Z" fill="#9a3412" opacity="0.4"/>
+  <!-- Outer Circuit Line -->
+  <path d="M 55,170 L 55,40 L 155,40 L 155,80 L 100,80 L 100,105 L 145,105 L 145,140 L 100,140" fill="none" stroke="#f59e0b" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="55" cy="170" r="12" fill="#fbbf24"/>
+  <circle cx="100" cy="140" r="10" fill="#d97706"/>
 </svg>
