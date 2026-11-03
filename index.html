@@ -117,10 +117,22 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const KEY = "islam-chat:v2";
-// the friends you can chat with; each has one conversation and its own persona file
+// the gurus and friends you can chat with; each has one conversation and its own persona file
 const AGENTS = [
-  { id: "fira", name: "Fira", persona: "personas/fira.md", color: "#00a884", about: "Teman muslimah" },
-  { id: "lucy", name: "Lucy", persona: "personas/lucy.md", color: "#3b82f6", about: "Teman protestan" },
+  { id: "ustadz", name: "Ustadz", persona: "personas/ustadz.md", color: "#0d9488", about: "Guru · Islam" },
+  { id: "pastor", name: "Pastor", persona: "personas/pastor.md", color: "#2563eb", about: "Guru · Protestan" },
+  { id: "father", name: "Father", persona: "personas/father.md", color: "#7c3aed", about: "Guru · Katolik" },
+  { id: "acharya", name: "Acharya", persona: "personas/acharya.md", color: "#f97316", about: "Guru · Hindu" },
+  { id: "bhante", name: "Bhante", persona: "personas/bhante.md", color: "#ca8a04", about: "Guru · Buddha" },
+  { id: "laoshi", name: "Laoshi", persona: "personas/laoshi.md", color: "#dc2626", about: "Guru · Konghucu" },
+  { id: "elder", name: "Elder", persona: "personas/elder.md", color: "#475569", about: "Guru · Saksi Yehuwa" },
+  { id: "fira", name: "Fira", persona: "personas/fira.md", color: "#00a884", about: "Teman · Islam" },
+  { id: "lucy", name: "Lucy", persona: "personas/lucy.md", color: "#3b82f6", about: "Teman · Protestan" },
+  { id: "maria", name: "Maria", persona: "personas/maria.md", color: "#a855f7", about: "Teman · Katolik" },
+  { id: "dewi", name: "Dewi", persona: "personas/dewi.md", color: "#e11d48", about: "Teman · Hindu" },
+  { id: "mei", name: "Mei", persona: "personas/mei.md", color: "#f59e0b", about: "Teman · Buddha" },
+  { id: "lian", name: "Lian", persona: "personas/lian.md", color: "#14b8a6", about: "Teman · Konghucu" },
+  { id: "sarah", name: "Sarah", persona: "personas/sarah.md", color: "#6366f1", about: "Teman · Saksi Yehuwa" },
 ];
 
 let state = { chats: [], current: null };
@@ -163,17 +175,21 @@ function renderList() {
     const body = el("div", "body");
     const row = el("div", "row");
     row.append(el("span", "name", ag.name), el("span", "time", last ? hhmm(last.t) : ""));
-    body.append(row, el("div", "preview", busy.has(c.id) ? "mengetik…" : last ? (last.role === "user" ? "Anda: " : "") + last.text.replace(/\*\*/g, "") : ag.about));
+    body.append(row, el("div", "preview", busy.has(c.id) ? "mengetik…" : last ? (last.role === "user" ? "Anda: " : "") + last.text.replace(/\*/g, "") : ag.about));
     b.append(av, body);
     b.onclick = () => open(c.id);
     list.append(b);
   }
 }
 
-// **bold** only; everything else stays plain text (built with DOM nodes, never innerHTML)
+// **bold** and *italic* only; everything else stays plain text (built with DOM nodes, never innerHTML)
 function fmt(node, text) {
   node.replaceChildren();
-  text.split(/\*\*(.+?)\*\*/gs).forEach((part, i) => node.append(i % 2 ? el("b", null, part) : document.createTextNode(part)));
+  for (const part of text.split(/(\*\*[^*]+?\*\*|\*[^*\n]+?\*)/g)) {
+    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) node.append(el("b", null, part.slice(2, -2)));
+    else if (part.startsWith("*") && part.endsWith("*") && part.length > 2) node.append(el("i", null, part.slice(1, -1)));
+    else node.append(document.createTextNode(part));
+  }
 }
 
 function bubble(m) {
