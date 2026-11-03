@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Local web-tools proxy for the browser UI (index.html): keeps BRAVE_API_KEY and the search/fetch code on the server.
 //   BRAVE_API_KEY=... node bin/proxy.js        listens on 127.0.0.1:8787 (PORT to change)
-// POST /agent {question, deviceId, persona?} streams SSE in the islam-gpt shape: {type:"tool"}, {type:"document",title,markdown}, {type:"chunk",text}, {type:"references"}, {type:"done"}.
+// POST /agent {question, deviceId, persona?, message?} streams SSE in the islam-gpt shape: {type:"tool"}, {type:"document",title,markdown}, {type:"chunk",text}, {type:"references"}, {type:"done"}.
 // Only localhost origins may call it (ALLOWED_ORIGINS="https://a.com,https://b.com" to add more).
 import { createServer } from "node:http";
 import { agentChat } from "../src/agent.js";
@@ -22,9 +22,9 @@ createServer(async (req, res) => {
 
   let body = "";
   for await (const c of req) if ((body += c).length > MAX_BODY) return res.writeHead(413).end("too large");
-  let question, deviceId, persona;
+  let question, deviceId, persona, message;
   try {
-    ({ question, deviceId, persona } = JSON.parse(body));
+    ({ question, deviceId, persona, message } = JSON.parse(body));
     if (typeof question !== "string" || !question.trim()) throw new Error();
   } catch {
     return res.writeHead(400).end("need JSON {question}");
@@ -37,6 +37,7 @@ createServer(async (req, res) => {
   try {
     const { references } = await agentChat(question, {
       deviceId: typeof deviceId === "string" ? deviceId : undefined,
+      message: typeof message === "string" ? message.slice(0, 2000) : "",
       persona: typeof persona === "string" ? persona.slice(0, 6000) : "",
       onDocument: (d) => send({ type: "document", ...d }),
       onToolStart: ({ name, args }) => send({ type: "tool", phase: "start", name, args }),

@@ -1,6 +1,7 @@
 ---
 name: writing-md
 description: Write a longer structured document (study notes, summary, outline, checklist, step-by-step guide, comparison table) as Markdown; the page shows it in a side panel. Use when the user asks for notes, a summary, a plan, a table, a schedule or says "buatkan catatan/rangkuman/dokumen/tabel/daftar".
+triggers: catatan, rangkuman, ringkasan, dokumen, tabel, markdown, outline, checklist, notes, summary, document, table
 ---
 
 # Writing a document in Markdown

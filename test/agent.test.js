@@ -111,7 +111,7 @@ import { loadSkills, parseSkill, skillTool } from "../src/skills.js";
 import { extractDocuments, toolInstructions } from "../src/agent.js";
 
 test("parseSkill / loadSkills: reads SKILL.md frontmatter, ignores folders without one", () => {
-  assert.deepEqual(parseSkill("---\nname: x\ndescription: Does x\n---\n\n# Body\ntext"), { name: "x", description: "Does x", body: "# Body\ntext" });
+  assert.deepEqual(parseSkill("---\nname: x\ndescription: Does x\n---\n\n# Body\ntext"), { name: "x", description: "Does x", triggers: [], body: "# Body\ntext" });
   assert.equal(parseSkill("no frontmatter"), null);
   const dir = mkdtempSync(join(tmpdir(), "skills-"));
   mkdirSync(join(dir, "a")); writeFileSync(join(dir, "a", "SKILL.md"), "---\nname: a\ndescription: A\n---\nbody a");
@@ -148,4 +148,19 @@ test("toolInstructions lists skills; agentChat loads a skill, then emits the doc
   assert.deepEqual(docs, [{ title: "Catatan", markdown: "# Catatan\nisi" }]);
   assert.deepEqual(chunks, ["Siap!"]);
   assert.equal(res.documents.length, 1);
+});
+
+test("matchingSkills: whole-word trigger match, any case; agentChat preloads the matching skill's text", async () => {
+  const { matchingSkills } = await import("../src/skills.js");
+  const skills = new Map([["w", { name: "w", description: "d", triggers: ["catatan", "table"], body: "WRITE LIKE THIS" }]]);
+  assert.equal(matchingSkills(skills, "Buatkan CATATAN singkat").length, 1);
+  assert.equal(matchingSkills(skills, "kata catatanku?").length, 0);
+  assert.equal(matchingSkills(skills, "stable").length, 0);
+  assert.equal(matchingSkills(skills, "apa itu puasa").length, 0);
+  const prompts = [];
+  const chatFn = async (p) => (prompts.push(p), { text: "ok", references: [] });
+  await agentChat("q", { chatFn, skills, tools: {}, message: "tolong buat catatan", onChunk: () => {} });
+  await agentChat("q", { chatFn, skills, tools: {}, message: "apa itu puasa", onChunk: () => {} });
+  assert.match(prompts[0], /Skill "w" applies to this request[\s\S]*WRITE LIKE THIS[\s\S]*User question: q/);
+  assert.doesNotMatch(prompts[1], /WRITE LIKE THIS/);
 });

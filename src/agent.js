@@ -2,7 +2,7 @@
 // one-line protocol (TOOL: {"name":...,"args":{...}}), we run the tool, and ask again with the result inside.
 import { chat as islamChat } from "./islam.js";
 import { TOOLS } from "./tools.js";
-import { loadSkills, skillTool } from "./skills.js";
+import { loadSkills, matchingSkills, skillTool } from "./skills.js";
 
 const MAX_STEPS = 3;
 const RESULT_CHARS = 4000;
@@ -10,7 +10,7 @@ const SKILL_CHARS = 8000; // instructions are not search results: do not cut the
 
 export function toolInstructions(tools = TOOLS, skills = new Map()) {
   const list = Object.entries(tools).map(([n, t]) => `- ${n} ${t.usage}: ${t.does}`).join("\n");
-  const skillList = skills.size ? `\n\nSkills (call load_skill with the name to read its instructions BEFORE doing that kind of task, then follow them):\n${[...skills.values()].map((k) => `- ${k.name}: ${k.description}`).join("\n")}` : "";
+  const skillList = skills.size ? `\n\nSkills (call load_skill with the name to read its instructions BEFORE doing that kind of task, then follow them):\n${[...skills.values()].map((k) => `- ${k.name}: ${k.description}`).join("\n")}\nA skill's rules for what it produces (a Markdown document, say) override your persona's plain-text and no-list rules for that output only; your chat sentences keep your persona's voice.` : "";
   return `Today is ${new Date().toLocaleDateString("en-CA")} (use this for questions about today's date; no search needed). You can look things up on the internet. Tools:\n${list}${skillList}\n\nTo use a tool, reply with ONLY that one line: no greeting, no "wait a moment", no other text before or after it: TOOL: {"name": "<tool>", "args": {...}}\nYou will then get the result and can answer. Use a tool only for recent or unknown facts; otherwise answer directly. Cite the URLs you used.`;
 }
 
@@ -43,20 +43,22 @@ export function extractDocuments(reply) {
 /**
  * Ask with web tools. Calls onChunk once, with the final answer (replies are held back until we know they are not tool calls).
  * Options: persona (who the model must stay as; repeated after every tool result so it does not drift), tools,
- * skills (Map from loadSkills(); default: the skills/ folder), chatFn (for tests), onToolStart({name,args}) before a tool runs,
+ * skills (Map from loadSkills(); default: the skills/ folder), message (the user's latest text: skills whose trigger words it contains are preloaded), chatFn (for tests), onToolStart({name,args}) before a tool runs,
  * onTool({name,args,result|error}) after, onDocument({title,markdown}) for each document in the answer, plus the islam.js options.
  * Resolves to { text, references, images, documents, steps }.
  */
-export async function agentChat(question, { onChunk, onTool, onToolStart, onDocument, skills = loadSkills(), persona = "", tools = TOOLS, chatFn = islamChat, maxSteps = MAX_STEPS, ...opts } = {}) {
+export async function agentChat(question, { onChunk, onTool, onToolStart, onDocument, skills = loadSkills(), message = "", persona = "", tools = TOOLS, chatFn = islamChat, maxSteps = MAX_STEPS, ...opts } = {}) {
   if (skills.size && !tools.load_skill) tools = { ...tools, load_skill: skillTool(skills) };
   const images = [];
   const documents = [];
   const exchanges = []; // what the tools returned so far, replayed on every round
-  const base = `${toolInstructions(tools, skills)}\n\n${persona ? `${persona}\n\n` : ""}User question: ${question}`;
+  const preloaded = matchingSkills(skills, message);
+  const preload = preloaded.map((k) => `Skill "${k.name}" applies to this request, follow it:\n${k.body}\n\n`).join("");
+  const base = `${toolInstructions(tools, skills)}\n\n${persona ? `${persona}\n\n` : ""}${preload}User question: ${question}`;
   for (let step = 0; ; step++) {
     // After a tool result the persona is far above in the prompt and the model drifts into a generic assistant, so restate it last.
     const tail = exchanges.length
-      ? `\n\n${persona ? `Stay in character, exactly as described above:\n${persona}\n\n` : ""}${step >= maxSteps ? "Now answer the user's question in full, without another tool call." : "Now answer the user's question, or call another tool."}`
+      ? `\n\n${persona ? `Stay in character, exactly as described above:\n${persona}\n\n${skills.size ? "(If you loaded a skill, its output format overrides the persona's formatting rules for that output: e.g. a <document> may use headings, lists and tables. Your chat sentences stay in the persona's voice.)\n\n" : ""}` : ""}${step >= maxSteps ? "Now answer the user's question in full, without another tool call." : "Now answer the user's question, or call another tool."}`
       : "";
     // The reply may be a tool call with chatter around it ("Sebentar ya...\nTOOL: {...}"), so hold the whole
     // reply and show it only once we know it is the final answer.
