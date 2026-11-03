@@ -1,7 +1,9 @@
 // Web tools the agent loop (agent.js) can call: web_search, fetch_url and show_image.
-// web_search uses Brave Search when BRAVE_API_KEY is set, else DuckDuckGo's HTML page (no key, but fragile).
-import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
+// Runs on Node (bin/) and on Cloudflare Workers (worker/faith.js): only fetch and web APIs here, no node: imports at the top.
+// web_search: Brave Search when BRAVE_API_KEY is set (it is paid: optional); else (or when Brave fails) DuckDuckGo's HTML page, which needs
+// no key but may refuse a datacenter address; else Wikipedia's search, which needs no key and always answers. Each result says which one (via).
+// A tool is run as run(args, {signal, env}): `env` carries the settings (BRAVE_API_KEY); on Node it defaults to process.env.
+const processEnv = typeof process !== "undefined" ? process.env : {};
 
 const UA = "Mozilla/5.0 (compatible; faith-agent/0.1)";
 const MAX_PAGE_CHARS = 3000;
@@ -41,9 +43,9 @@ export function parseDdg(html, limit = 5) {
   return out;
 }
 
-async function braveSearch(query, limit, signal) {
+async function braveSearch(query, limit, signal, key) {
   const res = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${limit}`, {
-    headers: { Accept: "application/json", "X-Subscription-Token": process.env.BRAVE_API_KEY },
+    headers: { Accept: "application/json", "X-Subscription-Token": key },
     signal,
   });
   if (!res.ok) throw new Error(`Brave search: HTTP ${res.status}`);
@@ -51,16 +53,56 @@ async function braveSearch(query, limit, signal) {
   return (web?.results ?? []).slice(0, limit).map((r) => ({ title: strip(r.title ?? ""), url: r.url, snippet: strip(r.description ?? "") }));
 }
 
+/**
+ * DuckDuckGo's HTML page, asked for Indonesian results. A POST (the page's own form) first, then a GET. A reply that is not a plain 200
+ * (the 202 of its bot check, a rate limit) or has no results counts as a refusal: [] so the next backend is tried.
+ */
 async function ddgSearch(query, limit, signal) {
-  const res = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, { headers: { "User-Agent": UA }, signal });
-  if (!res.ok) throw new Error(`DuckDuckGo search: HTTP ${res.status}`);
-  return parseDdg(await res.text(), limit);
+  for (const method of ["POST", "GET"]) {
+    try {
+      const res = await fetch(method === "POST" ? "https://html.duckduckgo.com/html/" : `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}&kl=id-id`, {
+        method,
+        headers: { "User-Agent": UA, "Accept-Language": "id,en;q=0.8", ...(method === "POST" ? { "Content-Type": "application/x-www-form-urlencoded" } : {}) },
+        body: method === "POST" ? new URLSearchParams({ q: query, kl: "id-id" }) : undefined,
+        signal,
+      });
+      if (res.status !== 200) continue;
+      const found = parseDdg(await res.text(), limit);
+      if (found.length) return found;
+    } catch {} // a timeout or network error: try the next way
+  }
+  return [];
 }
 
-/** Search the web: [{title, url, snippet}]. */
-export async function webSearch({ query }, { limit = 5, signal } = {}) {
+/** Wikipedia's own search (Indonesian first, then English): [{title, url, snippet}]. */
+export async function wikiSearch(query, limit, signal) {
+  for (const lang of ["id", "en"]) {
+    const res = await fetch(`https://${lang}.wikipedia.org/w/api.php?action=query&list=search&format=json&srlimit=${limit}&srsearch=${encodeURIComponent(query)}`, {
+      headers: { "User-Agent": UA },
+      signal,
+    });
+    if (!res.ok) throw new Error(`Wikipedia search: HTTP ${res.status}`);
+    const hits = (await res.json()).query?.search ?? [];
+    if (hits.length) {
+      return hits.map((h) => ({ title: h.title, url: `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(h.title.replace(/ /g, "_"))}`, snippet: strip(h.snippet ?? "") }));
+    }
+  }
+  return [];
+}
+
+/** Search the web: [{via, title, url, snippet}]; `via` names the backend that answered (brave, duckduckgo or wikipedia). */
+export async function webSearch({ query }, { limit = 5, signal, env = processEnv } = {}) {
   if (!query || typeof query !== "string") throw new Error("web_search needs a query string");
-  return process.env.BRAVE_API_KEY ? braveSearch(query, limit, signal) : ddgSearch(query, limit, signal);
+  const tag = (via, list) => list.map((r) => ({ via, ...r }));
+  if (env.BRAVE_API_KEY) {
+    try {
+      const found = await braveSearch(query, limit, signal, env.BRAVE_API_KEY);
+      if (found.length) return tag("brave", found);
+    } catch {} // out of quota or down: fall through to the keyless ones
+  }
+  const ddg = await ddgSearch(query, limit, signal);
+  if (ddg.length) return tag("duckduckgo", ddg);
+  return tag("wikipedia", await wikiSearch(query, limit, signal));
 }
 
 /**
@@ -85,6 +127,17 @@ export async function showImage({ query }, { signal } = {}) {
 
 const isPrivate = (ip) =>
   /^(10\.|127\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip) || ip === "::1" || /^(fc|fd|fe80)/i.test(ip) || ip.startsWith("::ffff:");
+const isIPLiteral = (host) => /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(":");
+
+/** Resolve a host name to its addresses on Node. Workers have no DNS API (and refuse to fetch private addresses themselves): there it returns []. */
+async function resolveHost(host) {
+  const spec = "node:dns/promises"; // not a literal import: the Workers upload does not try to resolve it
+  try {
+    return (await (await import(spec)).lookup(host, { all: true })).map((a) => a.address);
+  } catch {
+    return [];
+  }
+}
 
 /** The model picks the URL, so refuse anything that is not public http(s): no localhost, LAN, or metadata endpoints. */
 export async function assertPublicUrl(raw) {
@@ -92,8 +145,8 @@ export async function assertPublicUrl(raw) {
   if (!/^https?:$/.test(u.protocol)) throw new Error("only http(s) URLs");
   const host = u.hostname.replace(/^\[|\]$/g, "");
   if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) throw new Error("private host");
-  const addrs = isIP(host) ? [{ address: host }] : await lookup(host, { all: true });
-  if (addrs.some((a) => isPrivate(a.address))) throw new Error("private address");
+  const addrs = isIPLiteral(host) ? [host] : await resolveHost(host);
+  if (addrs.some(isPrivate)) throw new Error("private address");
   return u;
 }
 

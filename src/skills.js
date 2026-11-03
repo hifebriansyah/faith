@@ -1,9 +1,6 @@
 // Skills: folders under skills/<name>/SKILL.md (the Agent Skills format: frontmatter name + description, then instructions).
 // The prompt lists only name and description; the model reads the full text with the load_skill tool when a task matches.
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-
-export const SKILLS_DIR = new URL("../skills/", import.meta.url).pathname;
+// Pure: runs on Node and on Cloudflare Workers. Reading the folder is src/skills-fs.js (Node only).
 
 /** Split a SKILL.md into { name, description, triggers, body }; null when it has no frontmatter name. `triggers:` is an optional comma list. */
 export function parseSkill(text) {
@@ -15,23 +12,9 @@ export function parseSkill(text) {
   return name ? { name, description: field("description") ?? "", triggers, body: m[2].trim() } : null;
 }
 
-/** Read every skill under `dir` (read on each call, so edits apply without a restart): Map name -> skill. */
-export function loadSkills(dir = SKILLS_DIR) {
-  const skills = new Map();
-  let entries = [];
-  try {
-    entries = readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return skills;
-  }
-  for (const e of entries) {
-    if (!e.isDirectory()) continue;
-    try {
-      const skill = parseSkill(readFileSync(join(dir, e.name, "SKILL.md"), "utf8"));
-      if (skill) skills.set(skill.name, skill);
-    } catch {} // a folder without SKILL.md is not a skill
-  }
-  return skills;
+/** Skills from a list of {name, description, triggers, body} (the Worker gets this list from the deploy, which reads skills/ for it): Map name -> skill. */
+export function skillsFromList(list) {
+  return new Map(list.map((k) => [k.name, { triggers: [], description: "", ...k }]));
 }
 
 /** Skills whose trigger words appear in the user's message (whole words, any case): they are preloaded instead of left to the model's choice. */

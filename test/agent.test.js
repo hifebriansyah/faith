@@ -107,7 +107,8 @@ test("toolInstructions: today's date is the local date, not the UTC one", async 
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadSkills, parseSkill, skillTool } from "../src/skills.js";
+import { parseSkill, skillTool } from "../src/skills.js";
+import { loadSkills } from "../src/skills-fs.js";
 import { extractDocuments, toolInstructions } from "../src/agent.js";
 
 test("parseSkill / loadSkills: reads SKILL.md frontmatter, ignores folders without one", () => {
@@ -163,4 +164,30 @@ test("matchingSkills: whole-word trigger match, any case; agentChat preloads the
   await agentChat("q", { chatFn, skills, tools: {}, message: "apa itu puasa", onChunk: () => {} });
   assert.match(prompts[0], /Skill "w" applies to this request[\s\S]*WRITE LIKE THIS[\s\S]*User question: q/);
   assert.doesNotMatch(prompts[1], /WRITE LIKE THIS/);
+});
+
+import { webSearch } from "../src/tools.js";
+
+const ddgPage = '<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fex.com%2Fa">Judul</a> <a class="result__snippet" href="#">Cuplikan</a>';
+const withFetch = async (fake, fn) => {
+  const real = globalThis.fetch;
+  globalThis.fetch = fake;
+  try { return await fn(); } finally { globalThis.fetch = real; }
+};
+
+test("webSearch: DuckDuckGo via POST, then GET when POST is refused, then Wikipedia; every result says which", async () => {
+  const calls = [];
+  // 1. POST answers
+  let out = await withFetch(async (u, i = {}) => (calls.push((i.method ?? "GET") + " " + new URL(String(u)).pathname), new Response(ddgPage, { status: 200 })), () => webSearch({ query: "x" }, { env: {} }));
+  assert.deepEqual(out, [{ via: "duckduckgo", title: "Judul", url: "https://ex.com/a", snippet: "Cuplikan" }]);
+  assert.deepEqual(calls, ["POST /html/"]);
+  // 2. POST gets the 202 bot check, GET answers
+  out = await withFetch(async (u, i = {}) => (i.method === "POST" ? new Response("challenge", { status: 202 }) : new Response(ddgPage)), () => webSearch({ query: "x" }, { env: {} }));
+  assert.equal(out[0].via, "duckduckgo");
+  // 3. both refused: Wikipedia
+  out = await withFetch(async (u) => (String(u).includes("duckduckgo") ? new Response("no", { status: 202 }) : Response.json({ query: { search: [{ title: "Puasa", snippet: "x" }] } })), () => webSearch({ query: "x" }, { env: {} }));
+  assert.deepEqual(out.map((r) => [r.via, r.url]), [["wikipedia", "https://id.wikipedia.org/wiki/Puasa"]]);
+  // a Brave key that fails does not stop the search
+  out = await withFetch(async (u) => (String(u).includes("brave") ? new Response("quota", { status: 429 }) : new Response(ddgPage)), () => webSearch({ query: "x" }, { env: { BRAVE_API_KEY: "k" } }));
+  assert.equal(out[0].via, "duckduckgo");
 });

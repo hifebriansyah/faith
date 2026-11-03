@@ -2,16 +2,16 @@
 // one-line protocol (TOOL: {"name":...,"args":{...}}), we run the tool, and ask again with the result inside.
 import { chat as islamChat } from "./islam.js";
 import { TOOLS } from "./tools.js";
-import { loadSkills, matchingSkills, skillTool } from "./skills.js";
+import { matchingSkills, skillTool } from "./skills.js";
 
 const MAX_STEPS = 3;
 const RESULT_CHARS = 4000;
 const SKILL_CHARS = 8000; // instructions are not search results: do not cut them like one
 
-export function toolInstructions(tools = TOOLS, skills = new Map()) {
+export function toolInstructions(tools = TOOLS, skills = new Map(), timeZone) {
   const list = Object.entries(tools).map(([n, t]) => `- ${n} ${t.usage}: ${t.does}`).join("\n");
   const skillList = skills.size ? `\n\nSkills (call load_skill with the name to read its instructions BEFORE doing that kind of task, then follow them):\n${[...skills.values()].map((k) => `- ${k.name}: ${k.description}`).join("\n")}\nA skill's rules for what it produces (a Markdown document, say) override your persona's plain-text and no-list rules for that output only; your chat sentences keep your persona's voice.` : "";
-  return `Today is ${new Date().toLocaleDateString("en-CA")} (use this for questions about today's date; no search needed). You can look things up on the internet. Tools:\n${list}${skillList}\n\nTo use a tool, reply with ONLY that one line: no greeting, no "wait a moment", no other text before or after it: TOOL: {"name": "<tool>", "args": {...}}\nYou will then get the result and can answer. Use a tool only for recent or unknown facts; otherwise answer directly. Cite the URLs you used.`;
+  return `Today is ${new Date().toLocaleDateString("en-CA", { timeZone })} (use this for questions about today's date; no search needed). You can look things up on the internet. Tools:\n${list}${skillList}\n\nTo use a tool, reply with ONLY that one line: no greeting, no "wait a moment", no other text before or after it: TOOL: {"name": "<tool>", "args": {...}}\nYou will then get the result and can answer. Use a tool only for recent or unknown facts; otherwise answer directly. Cite the URLs you used.`;
 }
 
 /** The first `TOOL: {...}` line of a reply as {name, args}, or null when the reply is a normal answer. */
@@ -43,18 +43,19 @@ export function extractDocuments(reply) {
 /**
  * Ask with web tools. Calls onChunk once, with the final answer (replies are held back until we know they are not tool calls).
  * Options: persona (who the model must stay as; repeated after every tool result so it does not drift), tools,
- * skills (Map from loadSkills(); default: the skills/ folder), message (the user's latest text: skills whose trigger words it contains are preloaded), chatFn (for tests), onToolStart({name,args}) before a tool runs,
+ * skills (a Map: loadSkills() from skills-fs.js on Node, skillsFromList() on Workers; default none), env (settings handed to the tools, e.g. BRAVE_API_KEY),
+ * timeZone (for "today"; Workers run in UTC, so the Worker sets Asia/Jakarta), message (the user's latest text: skills whose trigger words it contains are preloaded), chatFn (for tests), onToolStart({name,args}) before a tool runs,
  * onTool({name,args,result|error}) after, onDocument({title,markdown}) for each document in the answer, plus the islam.js options.
  * Resolves to { text, references, images, documents, steps }.
  */
-export async function agentChat(question, { onChunk, onTool, onToolStart, onDocument, skills = loadSkills(), message = "", persona = "", tools = TOOLS, chatFn = islamChat, maxSteps = MAX_STEPS, ...opts } = {}) {
+export async function agentChat(question, { onChunk, onTool, onToolStart, onDocument, skills = new Map(), env, timeZone, message = "", persona = "", tools = TOOLS, chatFn = islamChat, maxSteps = MAX_STEPS, ...opts } = {}) {
   if (skills.size && !tools.load_skill) tools = { ...tools, load_skill: skillTool(skills) };
   const images = [];
   const documents = [];
   const exchanges = []; // what the tools returned so far, replayed on every round
   const preloaded = matchingSkills(skills, message);
   const preload = preloaded.map((k) => `Skill "${k.name}" applies to this request, follow it:\n${k.body}\n\n`).join("");
-  const base = `${toolInstructions(tools, skills)}\n\n${persona ? `${persona}\n\n` : ""}${preload}User question: ${question}`;
+  const base = `${toolInstructions(tools, skills, timeZone)}\n\n${persona ? `${persona}\n\n` : ""}${preload}User question: ${question}`;
   for (let step = 0; ; step++) {
     // After a tool result the persona is far above in the prompt and the model drifts into a generic assistant, so restate it last.
     const tail = exchanges.length
@@ -77,7 +78,7 @@ export async function agentChat(question, { onChunk, onTool, onToolStart, onDocu
     try {
       const tool = tools[call.name];
       if (!tool) throw new Error(`unknown tool "${call.name}"`);
-      const result = await tool.run(call.args, { signal: opts.signal });
+      const result = await tool.run(call.args, { signal: opts.signal, env });
       if (tool.image) {
         images.push(result);
         out = { result: `shown to the user: ${result.title}`, image: result };

@@ -210,8 +210,20 @@ const dayLabel = (t) => {
 };
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const API = "https://www.islam-gpt.org";
-// the web-tools proxy (node bin/proxy.js): runs the search/read-page loop so the key stays off the page
-const PROXY = "http://127.0.0.1:8787";
+// The Worker that lets the AI use the internet, show photos and write documents (worker/faith.js): it runs the search/read-page loop so no key is on the page.
+// To develop against the local proxy (node bin/proxy.js) open the page once with ?proxy=http://127.0.0.1:8787 (?proxy= alone goes back to the Worker).
+// Only a localhost address is accepted, so a link can never point your chat at somebody else's server.
+const WORKER = "https://faith-worker.situs.id";
+const PROXY = (() => {
+  try {
+    const asked = new URLSearchParams(location.search).get("proxy");
+    if (asked !== null) {
+      if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(asked)) localStorage.setItem("islam-chat:proxy", asked);
+      else if (asked === "") localStorage.removeItem("islam-chat:proxy");
+    }
+    return localStorage.getItem("islam-chat:proxy") || WORKER;
+  } catch { return WORKER; }
+})();
 let webOn = false;
 try { webOn = localStorage.getItem("islam-chat:web") === "1"; } catch {}
 // an anonymous id for this browser, made once
@@ -506,7 +518,8 @@ async function sendMessage(text) {
     let res;
     if (webOn) {
       // through the local proxy, which lets the model search the web and streams back the same SSE events
-      res = await fetch(PROXY + "/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceId: DEVICE_ID, question: prompt, persona, message: text.trim() }) }).catch(() => { throw new Error("proxy internet tidak jalan (node bin/proxy.js)"); });
+      res = await fetch(PROXY + "/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceId: DEVICE_ID, question: prompt, persona, message: text.trim() }) }).catch(() => { throw new Error(PROXY === WORKER ? "layanan internet tidak bisa dihubungi, coba lagi" : "proxy lokal tidak jalan (node bin/proxy.js)"); });
+      if (res.status === 429) throw new Error("terlalu banyak pertanyaan, tunggu sebentar lalu coba lagi");
     } else {
       // straight to islam-gpt.org (it allows any origin): POST the question, then read the answer as SSE
       const q = await fetch(API + "/api/questions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceId: DEVICE_ID, question: prompt }) });
@@ -566,7 +579,7 @@ $("doc-dl").onclick = () => {
   URL.revokeObjectURL(a.href);
 };
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && docView) closeDoc(); });
-const paintWeb = () => { $("web").style.opacity = webOn ? 1 : .4; $("web").title = webOn ? "Internet aktif (klik untuk mati)" : "Internet mati (klik untuk aktif)"; };
+const paintWeb = () => { $("web").style.opacity = webOn ? 1 : .4; $("web").title = webOn ? "Internet aktif (klik untuk mati). Pesanmu dikirim ke server dan dicatat." : "Internet mati (klik untuk aktif)"; };
 $("web").onclick = () => { webOn = !webOn; try { localStorage.setItem("islam-chat:web", webOn ? "1" : "0"); } catch {} paintWeb(); };
 paintWeb();
 $("q").oninput = renderList;
