@@ -67,9 +67,6 @@
   .bubble .text { white-space: pre-wrap; }
   .bubble .meta { float: right; margin: 6px 0 -4px 12px; font-size: 11px; color: var(--muted); display: flex; gap: 3px; align-items: center; }
   .bubble.err .text { color: var(--danger); }
-  .refs-btn { display: block; margin-top: 8px; font-size: 13px; color: var(--accent); font-weight: 500; clear: both; }
-  .refs { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 6px; font-size: 13px; color: var(--muted); display: grid; gap: 6px; clear: both; }
-  .refs b { color: var(--text); font-weight: 500; display: block; }
   .typing { display: inline-flex; gap: 4px; padding: 6px 2px; }
   .typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite; }
   .typing i:nth-child(2) { animation-delay: .2s; } .typing i:nth-child(3) { animation-delay: .4s; }
@@ -210,13 +207,6 @@ function bubble(m) {
   if (m.pending && !m.text) { text.replaceChildren(); const t = el("span", "typing"); t.append(el("i"), el("i"), el("i")); text.append(t); }
   const meta = el("span", "meta", hhmm(m.t) + (m.role === "user" ? " ✓✓" : ""));
   b.append(meta);
-  if (m.refs?.length) {
-    const btn = el("button", "refs-btn", `${m.refs.length} sumber`);
-    const box = el("div", "refs hidden");
-    for (const r of m.refs) { const d = el("div"); d.append(el("b", null, r.source), String(r.content).slice(0, 300) + (String(r.content).length > 300 ? "…" : "")); box.append(d); }
-    btn.onclick = () => { box.classList.toggle("hidden"); scrollDown(); };
-    b.append(btn, box);
-  }
   return b;
 }
 
@@ -299,7 +289,6 @@ async function sendMessage(text) {
         if (!data) continue;
         const ev = JSON.parse(data);
         if (ev.type === "chunk") { reply.text += ev.text; reply.t = Date.now(); update(); }
-        else if (ev.type === "references") reply.refs = typeof ev.data === "string" ? JSON.parse(ev.data) : ev.data;
         else if (ev.type === "done") { reader.cancel(); break read; }
       }
     }
