@@ -35,6 +35,8 @@ jobs:
           mkdir _site
           cp index.html CNAME .nojekyll manifest.webmanifest logo.svg favicon.ico _site/
           cp -r personas icons _site/
+      - name: Version the icon addresses (cache busting)
+        run: python3 tools/stamp_icons.py _site
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

@@ -58,6 +58,8 @@ Needs `pip install pillow`. Options: `--size`, `--quality`, `--focus` (where a c
 
 `logo.svg` is the logo (a circuit line that forms an F, with two amber dots). `python3 tools/make_icons.py` (needs Pillow) draws it as `logo.png` (1024) and writes the icons in `icons/` (app icon 192 and 512, a maskable one inside the safe zone, the iOS apple-touch-icon, the 48 px favicon) plus `favicon.ico`. All of them have a transparent background. `manifest.webmanifest` and the `<head>` of `index.html` use them, so the page can be installed as an app (Chrome: install; iPhone: Add to Home Screen). Change the colours in `logo.svg` and in `tools/make_icons.py` together, then run the script.
 
+**Cache busting:** browsers keep favicons for a very long time, so every icon address carries `?v=<hash of the file>`. `tools/stamp_icons.py` (standard library only) sets it: `make_icons.py` runs it on the repo files, and the Pages workflow runs it on the published copy on every deploy, so a changed icon always gets a new address even if nobody reran the script. The hash is from the file's content, so unchanged icons stay cached. A test fails when the repo's pages hold a stale hash.
+
 ## Palette
 
 The colours of the page come from the logo: its three ambers (`#f59e0b` the line, `#fbbf24` and `#d97706` the dots) on warm stone greys. They are CSS variables at the top of `index.html`, a light set and a dark set (it follows the system setting):

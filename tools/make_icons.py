@@ -9,13 +9,14 @@ Needs Pillow (pip3 install pillow). Everything has a transparent background and 
   icons/icon-maskable-512.png   the logo inside the safe zone: Android crops it to a circle or squircle
   icons/apple-touch-icon.png    180x180 (iOS puts black behind transparent icons; amber reads well on it)
   icons/favicon.png             48x48, and favicon.ico (16, 32, 48) for browsers that ask for /favicon.ico
-The names stay the same: index.html and manifest.webmanifest point at them. The shapes and colours are in logo.svg: change both together.
+The names stay the same: index.html and manifest.webmanifest point at them, with ?v=<hash of the file> added by tools/stamp_icons.py (cache busting: browsers keep old favicons). The shapes and colours are in logo.svg: change both together.
 """
 from __future__ import annotations
 
 from pathlib import Path
 
 from PIL import Image, ImageDraw
+from stamp_icons import stamp  # tools/stamp_icons.py: ?v=<hash> on the icon addresses (cache busting)
 
 ROOT = Path(__file__).resolve().parent.parent
 LINE = [(55, 170), (55, 40), (155, 40), (155, 80), (100, 80), (100, 105), (145, 105), (145, 140), (100, 140)]  # viewBox 200
@@ -64,7 +65,8 @@ def main() -> None:
     draw(180, padding=0.1).save(out / "apple-touch-icon.png", optimize=True)
     draw(48, padding=0.04).save(out / "favicon.png", optimize=True)
     draw(256, padding=0.04).save(ROOT / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
-    print("logo.png, icons/ (icon-192, icon-512, icon-maskable-512, apple-touch-icon, favicon.png) and favicon.ico written")
+    stamp(ROOT)
+    print("logo.png, icons/ (icon-192, icon-512, icon-maskable-512, apple-touch-icon, favicon.png) and favicon.ico written; ?v= updated in index.html and manifest.webmanifest")
 
 
 if __name__ == "__main__":
