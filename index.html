@@ -23,13 +23,13 @@
 
 
   /* mac-style scrollbars: thin, rounded, hidden until you hover or scroll */
-  .list, .msgs, .composer textarea { scrollbar-width: thin; scrollbar-color: transparent transparent; }
-  .list:hover, .msgs:hover, .composer textarea:hover { scrollbar-color: #8696a080 transparent; }
-  .list::-webkit-scrollbar, .msgs::-webkit-scrollbar, .composer textarea::-webkit-scrollbar { width: 9px; }
-  .list::-webkit-scrollbar-track, .msgs::-webkit-scrollbar-track, .composer textarea::-webkit-scrollbar-track { background: transparent; }
-  .list::-webkit-scrollbar-thumb, .msgs::-webkit-scrollbar-thumb, .composer textarea::-webkit-scrollbar-thumb { background: transparent; border-radius: 9px; border: 2px solid transparent; background-clip: padding-box; }
-  .list:hover::-webkit-scrollbar-thumb, .msgs:hover::-webkit-scrollbar-thumb, .composer textarea:hover::-webkit-scrollbar-thumb { background-color: #8696a080; }
-  .list::-webkit-scrollbar-thumb:hover, .msgs::-webkit-scrollbar-thumb:hover { background-color: #8696a0cc; }
+  .list, .msgs, .md, .md pre, .md .table-wrap, .composer textarea { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+  .list:hover, .msgs:hover, .md:hover, .md pre:hover, .md .table-wrap:hover, .composer textarea:hover { scrollbar-color: #8696a080 transparent; }
+  .list::-webkit-scrollbar, .msgs::-webkit-scrollbar, .md::-webkit-scrollbar, .md pre::-webkit-scrollbar, .md .table-wrap::-webkit-scrollbar, .composer textarea::-webkit-scrollbar { width: 9px; height: 9px; }
+  .list::-webkit-scrollbar-track, .msgs::-webkit-scrollbar-track, .md::-webkit-scrollbar-track, .md pre::-webkit-scrollbar-track, .md .table-wrap::-webkit-scrollbar-track, .composer textarea::-webkit-scrollbar-track { background: transparent; }
+  .list::-webkit-scrollbar-thumb, .msgs::-webkit-scrollbar-thumb, .md::-webkit-scrollbar-thumb, .md pre::-webkit-scrollbar-thumb, .md .table-wrap::-webkit-scrollbar-thumb, .composer textarea::-webkit-scrollbar-thumb { background: transparent; border-radius: 9px; border: 2px solid transparent; background-clip: padding-box; }
+  .list:hover::-webkit-scrollbar-thumb, .msgs:hover::-webkit-scrollbar-thumb, .md:hover::-webkit-scrollbar-thumb, .md pre:hover::-webkit-scrollbar-thumb, .md .table-wrap:hover::-webkit-scrollbar-thumb, .composer textarea:hover::-webkit-scrollbar-thumb { background-color: #8696a080; }
+  .list::-webkit-scrollbar-thumb:hover, .msgs::-webkit-scrollbar-thumb:hover, .md::-webkit-scrollbar-thumb:hover, .md pre::-webkit-scrollbar-thumb:hover, .md .table-wrap::-webkit-scrollbar-thumb:hover { background-color: #8696a0cc; }
 
   /* sidebar */
   .side { width: 380px; max-width: 40%; border-right: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; }
@@ -50,7 +50,8 @@
   .row .name { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .row .time { font-size: 12px; color: var(--muted); flex: none; }
   .preview { color: var(--muted); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .avatar { width: 49px; height: 49px; border-radius: 50%; flex: none; display: grid; place-items: center; color: #fff; font-weight: 600; font-size: 19px; }
+  .avatar { width: 49px; height: 49px; border-radius: 50%; flex: none; display: grid; place-items: center; color: #fff; font-weight: 600; font-size: 19px; overflow: hidden; }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .empty-list { padding: 40px 24px; text-align: center; color: var(--muted); }
 
   /* chat */
@@ -178,20 +179,20 @@ const $ = (id) => document.getElementById(id);
 const KEY = "islam-chat:v2";
 // the gurus and friends you can chat with; each has one conversation and its own persona file
 const AGENTS = [
-  { id: "ustadz", name: "Ahmad", persona: "personas/ustadz.md", color: "#0d9488", about: "Islam · Ustadz" },
-  { id: "pastor", name: "Daniel", persona: "personas/pastor.md", color: "#2563eb", about: "Protestan · Pastor" },
-  { id: "father", name: "Michael", persona: "personas/father.md", color: "#7c3aed", about: "Katolik · Father" },
-  { id: "acharya", name: "Arjun", persona: "personas/acharya.md", color: "#f97316", about: "Hindu · Acharya" },
-  { id: "bhante", name: "Dhammika", persona: "personas/bhante.md", color: "#ca8a04", about: "Buddha · Bhante" },
-  { id: "laoshi", name: "Chen", persona: "personas/laoshi.md", color: "#dc2626", about: "Konghucu · Laoshi" },
-  { id: "elder", name: "Samuel", persona: "personas/elder.md", color: "#475569", about: "Saksi Yehuwa · Elder" },
-  { id: "fira", name: "Fira", persona: "personas/fira.md", color: "#00a884", about: "Islam · Friend" },
-  { id: "lucy", name: "Lucy", persona: "personas/lucy.md", color: "#3b82f6", about: "Protestan · Friend" },
-  { id: "maria", name: "Maria", persona: "personas/maria.md", color: "#a855f7", about: "Katolik · Friend" },
-  { id: "dewi", name: "Dewi", persona: "personas/dewi.md", color: "#e11d48", about: "Hindu · Friend" },
-  { id: "mei", name: "Mei", persona: "personas/mei.md", color: "#f59e0b", about: "Buddha · Friend" },
-  { id: "lian", name: "Lian", persona: "personas/lian.md", color: "#14b8a6", about: "Konghucu · Friend" },
-  { id: "sarah", name: "Sarah", persona: "personas/sarah.md", color: "#6366f1", about: "Saksi Yehuwa · Friend" },
+  { id: "ustadz", name: "Ahmad", persona: "personas/ustadz.md", avatar: "personas/ahmad.jpg", color: "#0d9488", about: "Islam · Ustadz" },
+  { id: "pastor", name: "Daniel", persona: "personas/pastor.md", avatar: "personas/daniel.jpg", color: "#2563eb", about: "Protestan · Pastor" },
+  { id: "father", name: "Michael", persona: "personas/father.md", avatar: "personas/michael.jpg", color: "#7c3aed", about: "Katolik · Father" },
+  { id: "acharya", name: "Arjun", persona: "personas/acharya.md", avatar: "personas/arjun.jpg", color: "#f97316", about: "Hindu · Acharya" },
+  { id: "bhante", name: "Dhammika", persona: "personas/bhante.md", avatar: "personas/dhammika.jpg", color: "#ca8a04", about: "Buddha · Bhante" },
+  { id: "laoshi", name: "Chen", persona: "personas/laoshi.md", avatar: "personas/chen.jpg", color: "#dc2626", about: "Konghucu · Laoshi" },
+  { id: "elder", name: "Samuel", persona: "personas/elder.md", avatar: "personas/samuel.jpg", color: "#475569", about: "Saksi Yehuwa · Elder" },
+  { id: "fira", name: "Fira", persona: "personas/fira.md", avatar: "personas/fira.jpg", color: "#00a884", about: "Islam · Friend" },
+  { id: "lucy", name: "Lucy", persona: "personas/lucy.md", avatar: "personas/lucy.jpg", color: "#3b82f6", about: "Protestan · Friend" },
+  { id: "maria", name: "Maria", persona: "personas/maria.md", avatar: "personas/maria.jpg", color: "#a855f7", about: "Katolik · Friend" },
+  { id: "dewi", name: "Dewi", persona: "personas/dewi.md", avatar: "personas/dewi.jpg", color: "#e11d48", about: "Hindu · Friend" },
+  { id: "mei", name: "Mei", persona: "personas/mei.md", avatar: "personas/mei.jpg", color: "#f59e0b", about: "Buddha · Friend" },
+  { id: "lian", name: "Linzy", persona: "personas/lian.md", avatar: "personas/linzy.jpg", color: "#14b8a6", about: "Konghucu · Friend" },
+  { id: "sarah", name: "Sarah", persona: "personas/sarah.md", avatar: "personas/sarah.jpg", color: "#6366f1", about: "Saksi Yehuwa · Friend" },
 ];
 
 let state = { chats: [], current: null };
@@ -221,6 +222,18 @@ const DEVICE_ID = (() => {
     return id;
   } catch { return "anon" + Math.random().toString(36).slice(2, 20); }
 })();
+// the round avatar: the friend's picture (personas/<name>.jpg, made small and square by tools/make_image.py), else the first letter on the agent's colour
+function paintAvatar(node, ag) {
+  const letter = ag.name.charAt(0);
+  node.style.background = ag.color;
+  node.textContent = letter;
+  if (!ag.avatar) return;
+  const img = el("img");
+  img.alt = "";
+  img.onload = () => node.replaceChildren(img); // only swap the letter out once the picture is really there
+  img.onerror = () => {}; // missing file: the letter stays
+  img.src = ag.avatar;
+}
 const busy = new Set(); // chat ids with an answer in flight
 
 function renderList() {
@@ -233,8 +246,8 @@ function renderList() {
     const last = c.messages[c.messages.length - 1];
     const b = el("button", "item" + (c.id === state.current ? " active" : ""));
     const ag = agentOf(c.id);
-    const av = el("div", "avatar", ag.name.charAt(0));
-    av.style.background = ag.color;
+    const av = el("div", "avatar");
+    paintAvatar(av, ag);
     const body = el("div", "body");
     const row = el("div", "row");
     row.append(el("span", "name", ag.name), el("span", "time", last ? hhmm(last.t) : ""));
@@ -438,8 +451,7 @@ function renderChat() {
   if (!c) return;
   const ag = agentOf(c.id);
   $("htitle").textContent = ag.name;
-  $("hav").textContent = ag.name.charAt(0);
-  $("hav").style.background = ag.color;
+  paintAvatar($("hav"), ag);
   $("hsub").textContent = busy.has(c.id) ? "mengetik…" : "online";
   const box = $("msgs");
   box.replaceChildren();

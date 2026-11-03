@@ -34,3 +34,14 @@ Search is Brave when `BRAVE_API_KEY` is set, else DuckDuckGo's HTML page (no key
 
 - `writing-md`: the AI writes a Markdown document inside `<document title="...">`; the web UI shows it in a panel on the right (copy, download .md, close), with a card in the chat to reopen it. The CLI prints it after the answer. Needs the globe on (the proxy).
 - Persona files say "plain text, no lists" (WhatsApp style); the skill's output format overrides that for the document only.
+
+## Avatars
+
+Each agent (guru or friend) has a picture, `personas/<name>.jpg`, shown round in the chat list and header (a missing file falls back to the first letter). Make new ones small and square with the tool; it keeps your originals in `personas/originals/` (git-ignored) and can be re-run with another size:
+
+```bash
+python3 tools/make_image.py personas/*.jpg              # 256x256 JPEG, in place
+python3 tools/make_image.py personas/maria.jpg --size 128 --quality 75
+```
+
+Needs `pip install pillow`. Options: `--size`, `--quality`, `--focus` (where a crop sits, 0 top to 1 bottom), `--format jpg|webp`, `--out DIR`, `--no-backup`.
