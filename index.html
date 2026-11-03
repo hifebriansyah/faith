@@ -229,7 +229,7 @@ async function sendMessage(text) {
 
   const update = () => { if (state.current === c.id) { renderChat(); } renderList(); };
   try {
-    const res = await fetch("api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: text.trim() }) });
+    const res = await fetch("api/chat.php", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: text.trim() }) });
     if (!res.ok) throw new Error("HTTP " + res.status);
     const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
     let buf = "";

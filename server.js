@@ -15,7 +15,7 @@ const server = createServer(async (req, res) => {
     res.end(INDEX);
     return;
   }
-  if (req.method === "POST" && url.pathname === "/api/chat") {
+  if (req.method === "POST" && (url.pathname === "/api/chat" || url.pathname === "/api/chat.php")) {
     let body = "";
     for await (const c of req) body += c;
     let question;
