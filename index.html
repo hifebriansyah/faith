@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Islam Chat</title>
+<style>
+  :root {
+    --bg: #d1d7db; --panel: #ffffff; --panel-2: #f0f2f5; --line: #e9edef; --text: #111b21; --muted: #667781;
+    --accent: #00a884; --out: #d9fdd3; --in: #ffffff; --chat-bg: #efeae2; --hover: #f5f6f6; --active: #f0f2f5; --danger: #ea0038;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b141a; --panel: #111b21; --panel-2: #202c33; --line: #222d34; --text: #e9edef; --muted: #8696a0;
+      --accent: #00a884; --out: #005c4b; --in: #202c33; --chat-bg: #0b141a; --hover: #202c33; --active: #2a3942; --danger: #f15c6d;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .app { display: flex; height: 100dvh; max-width: 1500px; margin: 0 auto; background: var(--panel); box-shadow: 0 0 20px #0002; }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
+
+  /* sidebar */
+  .side { width: 380px; max-width: 40%; border-right: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; }
+  .side header, .chat header { height: 59px; padding: 0 16px; background: var(--panel-2); display: flex; align-items: center; gap: 12px; flex: none; }
+  .side h1 { font-size: 19px; font-weight: 600; margin: 0; flex: 1; }
+  .icon-btn { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); }
+  .icon-btn:hover { background: var(--active); }
+  .icon-btn svg { width: 22px; height: 22px; fill: currentColor; }
+  .search { padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  .search input { width: 100%; border: 0; border-radius: 8px; background: var(--panel-2); color: var(--text); padding: 9px 14px; font: inherit; outline: none; }
+  .list { overflow-y: auto; flex: 1; }
+  .item { display: flex; gap: 14px; padding: 0 14px; align-items: center; width: 100%; text-align: left; height: 72px; }
+  .item:hover { background: var(--hover); }
+  .item.active { background: var(--active); }
+  .item .body { flex: 1; min-width: 0; border-bottom: 1px solid var(--line); height: 100%; display: flex; flex-direction: column; justify-content: center; }
+  .row { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .row .name { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .time { font-size: 12px; color: var(--muted); flex: none; }
+  .preview { color: var(--muted); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .avatar { width: 49px; height: 49px; border-radius: 50%; flex: none; display: grid; place-items: center; color: #fff; font-weight: 600; font-size: 19px; }
+  .empty-list { padding: 40px 24px; text-align: center; color: var(--muted); }
+
+  /* chat */
+  .chat { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--chat-bg); position: relative; }
+  .chat header { background: var(--panel-2); cursor: default; }
+  .chat header .title { flex: 1; min-width: 0; }
+  .chat header .title b { display: block; font-weight: 500; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chat header .title span { font-size: 13px; color: var(--muted); }
+  .back { display: none; }
+  .msgs { flex: 1; overflow-y: auto; padding: 18px max(4%, 16px); display: flex; flex-direction: column; gap: 3px;
+    background-image: radial-gradient(circle at 20px 20px, #8696a012 2px, transparent 3px); background-size: 40px 40px; }
+  .bubble { max-width: min(75%, 640px); padding: 6px 9px 7px 10px; border-radius: 8px; box-shadow: 0 1px 0.5px #0b141a21; position: relative; word-wrap: break-word; overflow-wrap: anywhere; }
+  .bubble.out { align-self: flex-end; background: var(--out); border-top-right-radius: 0; margin-top: 6px; }
+  .bubble.in { align-self: flex-start; background: var(--in); border-top-left-radius: 0; margin-top: 6px; }
+  .bubble .text { white-space: pre-wrap; }
+  .bubble .meta { float: right; margin: 6px 0 -4px 12px; font-size: 11px; color: var(--muted); display: flex; gap: 3px; align-items: center; }
+  .bubble.err .text { color: var(--danger); }
+  .refs-btn { display: block; margin-top: 8px; font-size: 13px; color: var(--accent); font-weight: 500; clear: both; }
+  .refs { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 6px; font-size: 13px; color: var(--muted); display: grid; gap: 6px; clear: both; }
+  .refs b { color: var(--text); font-weight: 500; display: block; }
+  .typing { display: inline-flex; gap: 4px; padding: 6px 2px; }
+  .typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite; }
+  .typing i:nth-child(2) { animation-delay: .2s; } .typing i:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 60%, 100% { opacity: .3; transform: none; } 30% { opacity: 1; transform: translateY(-3px); } }
+  .day { align-self: center; background: var(--panel); color: var(--muted); font-size: 12.5px; padding: 5px 12px; border-radius: 8px; margin: 10px 0 4px; box-shadow: 0 1px 0.5px #0b141a21; }
+
+  .composer { flex: none; display: flex; gap: 10px; align-items: flex-end; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: var(--panel-2); }
+  .composer textarea { flex: 1; resize: none; max-height: 140px; border: 0; border-radius: 8px; background: var(--panel); color: var(--text); padding: 10px 14px; font: inherit; outline: none; }
+  .send { width: 44px; height: 44px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; flex: none; }
+  .send:disabled { opacity: .5; cursor: default; }
+  .send svg { width: 22px; height: 22px; fill: currentColor; }
+
+  .welcome { margin: auto; text-align: center; color: var(--muted); max-width: 380px; padding: 24px; }
+  .welcome h2 { color: var(--text); font-weight: 300; font-size: 28px; margin: 0 0 10px; }
+  .welcome .primary { margin-top: 18px; background: var(--accent); color: #fff; border-radius: 24px; padding: 10px 22px; font-weight: 500; }
+  .hidden { display: none !important; }
+
+  @media (max-width: 760px) {
+    .side { width: 100%; max-width: none; }
+    .chat { position: fixed; inset: 0; z-index: 2; transform: translateX(100%); transition: transform .2s; }
+    .app.in-chat .chat { transform: none; }
+    .back { display: grid; }
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="side">
+    <header>
+      <h1>Islam Chat</h1>
+      <button class="icon-btn" id="new" title="Percakapan baru" aria-label="Percakapan baru"><svg viewBox="0 0 24 24"><path d="M19.005 3.175H4.674C3.642 3.175 3 3.789 3 4.821V21.02l3.544-3.514h12.461c1.033 0 2.064-1.06 2.064-2.093V4.821c-.001-1.032-1.032-1.646-2.064-1.646zm-4.989 9.869H7.041V11.1h6.975v1.944zm3-4H7.041V7.1h9.975v1.944z"/></svg></button>
+    </header>
+    <div class="search"><input id="q" placeholder="Cari percakapan" autocomplete="off"></div>
+    <div class="list" id="list"></div>
+  </aside>
+
+  <main class="chat">
+    <div class="welcome" id="welcome">
+      <h2>Islam Chat</h2>
+      <div>Tanyakan apa saja tentang Islam. Buat percakapan baru, atau pilih salah satu di samping.</div>
+      <button class="primary" id="new2">Percakapan baru</button>
+    </div>
+    <header class="hidden" id="head">
+      <button class="icon-btn back" id="back" aria-label="Kembali"><svg viewBox="0 0 24 24"><path d="M12 4l1.4 1.4L7.8 11H20v2H7.8l5.6 5.6L12 20l-8-8 8-8z"/></svg></button>
+      <div class="avatar" id="hav" style="width:40px;height:40px;font-size:16px"></div>
+      <div class="title"><b id="htitle"></b><span id="hsub"></span></div>
+      <button class="icon-btn" id="rename" title="Ganti nama" aria-label="Ganti nama"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zM20.7 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
+      <button class="icon-btn" id="del" title="Hapus percakapan" aria-label="Hapus percakapan"><svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>
+    </header>
+    <div class="msgs hidden" id="msgs"></div>
+    <form class="composer hidden" id="form">
+      <textarea id="input" rows="1" placeholder="Ketik pertanyaan" autocomplete="off"></textarea>
+      <button class="send" id="send" aria-label="Kirim"><svg viewBox="0 0 24 24"><path d="M1.101 21.757L23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"/></svg></button>
+    </form>
+  </main>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const KEY = "islam-chat:v1";
+const COLORS = ["#00a884", "#3b82f6", "#a855f7", "#f59e0b", "#ef4444", "#14b8a6", "#6366f1", "#84cc16"];
+
+let state = { chats: [], current: null };
+try { state = { ...state, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
+const chatById = (id) => state.chats.find((c) => c.id === id);
+const colorOf = (id) => COLORS[[...id].reduce((a, ch) => a + ch.charCodeAt(0), 0) % COLORS.length];
+const uid = () => Math.random().toString(36).slice(2, 10);
+const hhmm = (t) => new Date(t).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+const dayLabel = (t) => {
+  const d = new Date(t), now = new Date();
+  const diff = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5);
+  return diff === 0 ? "Hari ini" : diff === 1 ? "Kemarin" : d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+};
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const busy = new Set(); // chat ids with an answer in flight
+
+function renderList() {
+  const q = $("q").value.trim().toLowerCase();
+  const list = $("list");
+  list.replaceChildren();
+  const chats = [...state.chats].sort((a, b) => b.updated - a.updated).filter((c) => !q || c.title.toLowerCase().includes(q));
+  if (!chats.length) list.append(el("div", "empty-list", state.chats.length ? "Tidak ada hasil." : "Belum ada percakapan. Tekan tombol di kanan atas untuk memulai."));
+  for (const c of chats) {
+    const last = c.messages[c.messages.length - 1];
+    const b = el("button", "item" + (c.id === state.current ? " active" : ""));
+    const av = el("div", "avatar", c.title.trim().charAt(0).toUpperCase() || "?");
+    av.style.background = colorOf(c.id);
+    const body = el("div", "body");
+    const row = el("div", "row");
+    row.append(el("span", "name", c.title), el("span", "time", last ? hhmm(last.t) : ""));
+    body.append(row, el("div", "preview", busy.has(c.id) ? "mengetik…" : last ? (last.role === "user" ? "Anda: " : "") + last.text.replace(/\*\*/g, "") : "Belum ada pesan"));
+    b.append(av, body);
+    b.onclick = () => open(c.id);
+    list.append(b);
+  }
+}
+
+// **bold** only; everything else stays plain text (built with DOM nodes, never innerHTML)
+function fmt(node, text) {
+  node.replaceChildren();
+  text.split(/\*\*(.+?)\*\*/gs).forEach((part, i) => node.append(i % 2 ? el("b", null, part) : document.createTextNode(part)));
+}
+
+function bubble(m) {
+  const b = el("div", "bubble " + (m.role === "user" ? "out" : "in") + (m.error ? " err" : ""));
+  const text = el("span", "text");
+  fmt(text, m.text);
+  b.append(text);
+  if (m.pending && !m.text) { text.replaceChildren(); const t = el("span", "typing"); t.append(el("i"), el("i"), el("i")); text.append(t); }
+  const meta = el("span", "meta", hhmm(m.t) + (m.role === "user" ? " ✓✓" : ""));
+  b.append(meta);
+  if (m.refs?.length) {
+    const btn = el("button", "refs-btn", `${m.refs.length} sumber`);
+    const box = el("div", "refs hidden");
+    for (const r of m.refs) { const d = el("div"); d.append(el("b", null, r.source), String(r.content).slice(0, 300) + (String(r.content).length > 300 ? "…" : "")); box.append(d); }
+    btn.onclick = () => { box.classList.toggle("hidden"); scrollDown(); };
+    b.append(btn, box);
+  }
+  return b;
+}
+
+function scrollDown() { const m = $("msgs"); m.scrollTop = m.scrollHeight; }
+
+function renderChat() {
+  const c = chatById(state.current);
+  for (const id of ["head", "msgs", "form"]) $(id).classList.toggle("hidden", !c);
+  $("welcome").classList.toggle("hidden", !!c);
+  $("app").classList.toggle("in-chat", !!c);
+  if (!c) return;
+  $("htitle").textContent = c.title;
+  $("hav").textContent = c.title.trim().charAt(0).toUpperCase() || "?";
+  $("hav").style.background = colorOf(c.id);
+  $("hsub").textContent = busy.has(c.id) ? "mengetik…" : "online";
+  const box = $("msgs");
+  box.replaceChildren();
+  let day = "";
+  for (const m of c.messages) {
+    const d = dayLabel(m.t);
+    if (d !== day) { day = d; box.append(el("div", "day", d)); }
+    box.append(bubble(m));
+  }
+  scrollDown();
+  $("send").disabled = busy.has(c.id);
+}
+
+function open(id) { state.current = id; save(); renderList(); renderChat(); if (matchMedia("(min-width: 761px)").matches) $("input").focus(); }
+
+function newChat() {
+  const c = { id: uid(), title: "Percakapan baru", messages: [], updated: Date.now(), auto: true };
+  state.chats.push(c);
+  open(c.id);
+  $("input").focus();
+}
+
+async function sendMessage(text) {
+  const c = chatById(state.current);
+  if (!c || busy.has(c.id) || !text.trim()) return;
+  const now = Date.now();
+  c.messages.push({ role: "user", text: text.trim(), t: now });
+  if (c.auto) { c.title = text.trim().slice(0, 40); c.auto = false; }
+  const reply = { role: "bot", text: "", t: Date.now(), pending: true };
+  c.messages.push(reply);
+  c.updated = now;
+  busy.add(c.id);
+  save(); renderList(); renderChat();
+
+  const update = () => { if (state.current === c.id) { renderChat(); } renderList(); };
+  try {
+    const res = await fetch("api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: text.trim() }) });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+    let buf = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += value;
+      const blocks = buf.split("\n\n");
+      buf = blocks.pop();
+      for (const blk of blocks) {
+        if (!blk.startsWith("data: ")) continue;
+        const ev = JSON.parse(blk.slice(6));
+        if (ev.type === "chunk") { reply.text += ev.text; reply.t = Date.now(); update(); }
+        else if (ev.type === "references") reply.refs = typeof ev.data === "string" ? JSON.parse(ev.data) : ev.data;
+        else if (ev.type === "error") throw new Error(ev.message);
+      }
+    }
+    if (!reply.text) throw new Error("Tidak ada jawaban.");
+  } catch (e) {
+    reply.error = true;
+    reply.text = (reply.text ? reply.text + "\n\n" : "") + "Gagal: " + e.message;
+  }
+  delete reply.pending;
+  reply.t = Date.now();
+  c.updated = reply.t;
+  busy.delete(c.id);
+  save(); update();
+}
+
+$("new").onclick = $("new2").onclick = newChat;
+$("q").oninput = renderList;
+$("back").onclick = () => { state.current = null; save(); renderList(); renderChat(); };
+$("rename").onclick = () => {
+  const c = chatById(state.current);
+  const name = c && prompt("Nama percakapan", c.title);
+  if (name && name.trim()) { c.title = name.trim(); c.auto = false; save(); renderList(); renderChat(); }
+};
+$("del").onclick = () => {
+  const c = chatById(state.current);
+  if (!c || !confirm(`Hapus "${c.title}"?`)) return;
+  state.chats = state.chats.filter((x) => x.id !== c.id);
+  state.current = null; save(); renderList(); renderChat();
+};
+$("form").onsubmit = (e) => { e.preventDefault(); const v = $("input").value; $("input").value = ""; $("input").style.height = ""; sendMessage(v); };
+$("input").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); $("form").requestSubmit(); } };
+$("input").oninput = (e) => { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px"; };
+
+if (!chatById(state.current)) state.current = null;
+renderList(); renderChat();
+</script>
+</body>
+</html>
