@@ -64,6 +64,7 @@
   .bubble { max-width: min(75%, 640px); padding: 6px 9px 7px 10px; border-radius: 8px; box-shadow: 0 1px 0.5px #0b141a21; position: relative; word-wrap: break-word; overflow-wrap: anywhere; }
   .bubble.out { align-self: flex-end; background: var(--out); border-top-right-radius: 0; margin-top: 6px; }
   .bubble.in { align-self: flex-start; background: var(--in); border-top-left-radius: 0; margin-top: 6px; }
+  .bubble.cont { margin-top: 3px; border-top-left-radius: 8px; border-top-right-radius: 8px; }
   .bubble .text { white-space: pre-wrap; }
   .bubble .meta { float: right; margin: 6px 0 -4px 12px; font-size: 11px; color: var(--muted); display: flex; gap: 3px; align-items: center; }
   .bubble.err .text { color: var(--danger); }
@@ -199,15 +200,22 @@ function fmt(node, text) {
   }
 }
 
-function bubble(m) {
-  const b = el("div", "bubble " + (m.role === "user" ? "out" : "in") + (m.error ? " err" : ""));
-  const text = el("span", "text");
-  fmt(text, m.text);
-  b.append(text);
-  if (m.pending && !m.text) { text.replaceChildren(); const t = el("span", "typing"); t.append(el("i"), el("i"), el("i")); text.append(t); }
-  const meta = el("span", "meta", hhmm(m.t) + (m.role === "user" ? " ✓✓" : ""));
-  b.append(meta);
+// one chat bubble: `text` is the message or one paragraph of it; only the last bubble of a message carries the time
+function bubble(m, text, { first = true, last = true } = {}) {
+  const b = el("div", "bubble " + (m.role === "user" ? "out" : "in") + (m.error ? " err" : "") + (first ? "" : " cont"));
+  const body = el("span", "text");
+  fmt(body, text);
+  b.append(body);
+  if (m.pending && !text) { body.replaceChildren(); const t = el("span", "typing"); t.append(el("i"), el("i"), el("i")); body.append(t); }
+  if (last) b.append(el("span", "meta", hhmm(m.t) + (m.role === "user" ? " ✓✓" : "")));
   return b;
+}
+
+// a message with blank lines between paragraphs shows as one bubble per paragraph, like separate WhatsApp messages
+function bubbles(m) {
+  const parts = m.text.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
+  if (parts.length < 2) return [bubble(m, m.text.trim())];
+  return parts.map((p, i) => bubble(m, p, { first: i === 0, last: i === parts.length - 1 }));
 }
 
 function scrollDown() { const m = $("msgs"); m.scrollTop = m.scrollHeight; }
@@ -229,7 +237,7 @@ function renderChat() {
   for (const m of c.messages) {
     const d = dayLabel(m.t);
     if (d !== day) { day = d; box.append(el("div", "day", d)); }
-    box.append(bubble(m));
+    box.append(...bubbles(m));
   }
   scrollDown();
   $("send").disabled = busy.has(c.id);
