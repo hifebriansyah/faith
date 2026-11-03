@@ -53,3 +53,7 @@ python3 tools/make_image.py personas/maria.jpg --size 128 --quality 75
 ```
 
 Needs `pip install pillow`. Options: `--size`, `--quality`, `--focus` (where a crop sits, 0 top to 1 bottom), `--format jpg|webp`, `--out DIR`, `--no-backup`.
+
+## Logo and app icons
+
+`logo.svg` is the logo (the crest). `python3 tools/make_icons.py` (needs Pillow) draws it as `logo.png` (1024, transparent) and writes the icons in `icons/` (app icon 192 and 512, a maskable one inside the safe zone, the iOS apple-touch-icon, the 48 px favicon) plus `favicon.ico`. `manifest.webmanifest` and the `<head>` of `index.html` use them, so the page can be installed as an app (Chrome: install; iPhone: Add to Home Screen). Change the colours in `logo.svg` and in `tools/make_icons.py` together, then run the script.
