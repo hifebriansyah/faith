@@ -13,4 +13,4 @@ npm test                            # unit tests + live tests against the API
 npm run test:offline                # unit tests only
 ```
 
-Env: `ISLAM_DEVICE_ID` (default: the sample id), `ISLAM_BASE_URL`. The API has no chat history field, so the web UI puts the last turns inside each question (index.html, withHistory). The CLI sends each question on its own.
+Env: `ISLAM_DEVICE_ID` (default: a random id per run), `ISLAM_BASE_URL`. The API has no chat history field, so the web UI puts the last turns inside each question (index.html, withHistory). The CLI sends each question on its own.

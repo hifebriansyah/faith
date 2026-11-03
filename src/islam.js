@@ -2,7 +2,9 @@
 // Stream events are JSON in `data:` lines: {type:"references",data:[...]}, {type:"chunk",text}, {type:"done"}.
 
 export const BASE_URL = process.env.ISLAM_BASE_URL ?? "https://www.islam-gpt.org";
-export const DEFAULT_DEVICE_ID = process.env.ISLAM_DEVICE_ID ?? "EXAMPLEDEVICEID000000000";
+// an anonymous id, random for each run unless ISLAM_DEVICE_ID is set
+const randomId = () => Array.from(crypto.getRandomValues(new Uint8Array(24)), (n) => "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[n % 62]).join("");
+export const DEFAULT_DEVICE_ID = process.env.ISLAM_DEVICE_ID ?? randomId();
 
 /** POST a question; resolves to the shareId of its answer stream. */
 export async function ask(question, { deviceId = DEFAULT_DEVICE_ID, baseUrl = BASE_URL, signal } = {}) {

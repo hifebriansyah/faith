@@ -238,7 +238,7 @@ function withHistory(c, question, persona) {
   if (persona) parts.push(persona);
   if (lines.length) parts.push(`Earlier in this chat (background only, do not mention it):\n${lines.join("\n")}`);
   if (!parts.length) return question;
-  return `${parts.join("\n\n")}\n\nUser's ${lines.length ? "new" : "first"} message: ${question}`;
+  return `${parts.join("\n\n")}\n\nUser's ${lines.length ? "new" : "first"} message: ${question}\n\n(Reply in the language of the user's message just above, not the language of the earlier chat.)`;
 }
 
 async function sendMessage(text) {
