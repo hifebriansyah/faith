@@ -90,7 +90,6 @@
   <aside class="side">
     <header>
       <h1>Islam Chat</h1>
-      <button class="icon-btn" id="new" title="Percakapan baru" aria-label="Percakapan baru"><svg viewBox="0 0 24 24"><path d="M19.005 3.175H4.674C3.642 3.175 3 3.789 3 4.821V21.02l3.544-3.514h12.461c1.033 0 2.064-1.06 2.064-2.093V4.821c-.001-1.032-1.032-1.646-2.064-1.646zm-4.989 9.869H7.041V11.1h6.975v1.944zm3-4H7.041V7.1h9.975v1.944z"/></svg></button>
     </header>
     <div class="search"><input id="q" placeholder="Cari percakapan" autocomplete="off"></div>
     <div class="list" id="list"></div>
@@ -99,19 +98,17 @@
   <main class="chat">
     <div class="welcome" id="welcome">
       <h2>Islam Chat</h2>
-      <div>Tanyakan apa saja tentang Islam. Buat percakapan baru, atau pilih salah satu di samping.</div>
-      <button class="primary" id="new2">Percakapan baru</button>
+      <div>Pilih teman di samping untuk mulai ngobrol.</div>
     </div>
     <header class="hidden" id="head">
       <button class="icon-btn back" id="back" aria-label="Kembali"><svg viewBox="0 0 24 24"><path d="M12 4l1.4 1.4L7.8 11H20v2H7.8l5.6 5.6L12 20l-8-8 8-8z"/></svg></button>
       <div class="avatar" id="hav" style="width:40px;height:40px;font-size:16px"></div>
       <div class="title"><b id="htitle"></b><span id="hsub"></span></div>
-      <button class="icon-btn" id="rename" title="Ganti nama" aria-label="Ganti nama"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zM20.7 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
-      <button class="icon-btn" id="del" title="Hapus percakapan" aria-label="Hapus percakapan"><svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>
+      <button class="icon-btn" id="del" title="Bersihkan percakapan" aria-label="Bersihkan percakapan"><svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>
     </header>
     <div class="msgs hidden" id="msgs"></div>
     <form class="composer hidden" id="form">
-      <textarea id="input" rows="1" placeholder="Ketik pertanyaan" autocomplete="off"></textarea>
+      <textarea id="input" rows="1" placeholder="Ketik pesan" autocomplete="off"></textarea>
       <button class="send" id="send" aria-label="Kirim"><svg viewBox="0 0 24 24"><path d="M1.101 21.757L23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"/></svg></button>
     </form>
   </main>
@@ -119,15 +116,20 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
-const KEY = "islam-chat:v1";
-const COLORS = ["#00a884", "#3b82f6", "#a855f7", "#f59e0b", "#ef4444", "#14b8a6", "#6366f1", "#84cc16"];
+const KEY = "islam-chat:v2";
+// the friends you can chat with; each has one conversation and its own persona file
+const AGENTS = [
+  { id: "fira", name: "Fira", persona: "personas/fira.md", color: "#00a884", about: "Teman muslimah" },
+  { id: "lucy", name: "Lucy", persona: "personas/lucy.md", color: "#3b82f6", about: "Teman protestan" },
+];
 
 let state = { chats: [], current: null };
 try { state = { ...state, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch {}
+for (const a of AGENTS) if (!state.chats.some((c) => c.id === a.id)) state.chats.push({ id: a.id, messages: [], updated: 0 });
+state.chats = AGENTS.map((a) => state.chats.find((c) => c.id === a.id));
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
 const chatById = (id) => state.chats.find((c) => c.id === id);
-const colorOf = (id) => COLORS[[...id].reduce((a, ch) => a + ch.charCodeAt(0), 0) % COLORS.length];
-const uid = () => Math.random().toString(36).slice(2, 10);
+const agentOf = (id) => AGENTS.find((a) => a.id === id);
 const hhmm = (t) => new Date(t).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
 const dayLabel = (t) => {
   const d = new Date(t), now = new Date();
@@ -150,17 +152,18 @@ function renderList() {
   const q = $("q").value.trim().toLowerCase();
   const list = $("list");
   list.replaceChildren();
-  const chats = [...state.chats].sort((a, b) => b.updated - a.updated).filter((c) => !q || c.title.toLowerCase().includes(q));
-  if (!chats.length) list.append(el("div", "empty-list", state.chats.length ? "Tidak ada hasil." : "Belum ada percakapan. Tekan tombol di kanan atas untuk memulai."));
+  const chats = [...state.chats].sort((a, b) => b.updated - a.updated).filter((c) => !q || agentOf(c.id).name.toLowerCase().includes(q));
+  if (!chats.length) list.append(el("div", "empty-list", "Tidak ada hasil."));
   for (const c of chats) {
     const last = c.messages[c.messages.length - 1];
     const b = el("button", "item" + (c.id === state.current ? " active" : ""));
-    const av = el("div", "avatar", c.title.trim().charAt(0).toUpperCase() || "?");
-    av.style.background = colorOf(c.id);
+    const ag = agentOf(c.id);
+    const av = el("div", "avatar", ag.name.charAt(0));
+    av.style.background = ag.color;
     const body = el("div", "body");
     const row = el("div", "row");
-    row.append(el("span", "name", c.title), el("span", "time", last ? hhmm(last.t) : ""));
-    body.append(row, el("div", "preview", busy.has(c.id) ? "mengetik…" : last ? (last.role === "user" ? "Anda: " : "") + last.text.replace(/\*\*/g, "") : "Belum ada pesan"));
+    row.append(el("span", "name", ag.name), el("span", "time", last ? hhmm(last.t) : ""));
+    body.append(row, el("div", "preview", busy.has(c.id) ? "mengetik…" : last ? (last.role === "user" ? "Anda: " : "") + last.text.replace(/\*\*/g, "") : ag.about));
     b.append(av, body);
     b.onclick = () => open(c.id);
     list.append(b);
@@ -199,9 +202,10 @@ function renderChat() {
   $("welcome").classList.toggle("hidden", !!c);
   $("app").classList.toggle("in-chat", !!c);
   if (!c) return;
-  $("htitle").textContent = c.title;
-  $("hav").textContent = c.title.trim().charAt(0).toUpperCase() || "?";
-  $("hav").style.background = colorOf(c.id);
+  const ag = agentOf(c.id);
+  $("htitle").textContent = ag.name;
+  $("hav").textContent = ag.name.charAt(0);
+  $("hav").style.background = ag.color;
   $("hsub").textContent = busy.has(c.id) ? "mengetik…" : "online";
   const box = $("msgs");
   box.replaceChildren();
@@ -217,22 +221,16 @@ function renderChat() {
 
 function open(id) { state.current = id; save(); renderList(); renderChat(); if (matchMedia("(min-width: 761px)").matches) $("input").focus(); }
 
-function newChat() {
-  const c = { id: uid(), title: "Percakapan baru", messages: [], updated: Date.now(), auto: true };
-  state.chats.push(c);
-  open(c.id);
-  $("input").focus();
-}
-
-// persona.md is put in front of every question: the API has no memory, so a persona sent only once would be forgotten
-let personaPromise;
-const loadPersona = () => (personaPromise ??= fetch("persona.md").then((r) => (r.ok ? r.text() : "")).then((s) => s.trim()).catch(() => ""));
+// the agent's persona file is put in front of every question: the API has no memory, so a persona sent only once would be forgotten
+const personas = {};
+const loadPersona = (a) => (personas[a.id] ??= fetch(a.persona).then((r) => (r.ok ? r.text() : "")).then((s) => s.trim()).catch(() => ""));
 
 // The API answers each question on its own, so a follow-up carries the recent turns inside the question text.
 const HISTORY_TURNS = 6, HISTORY_ANSWER_CHARS = 500, HISTORY_TOTAL_CHARS = 2500;
 function withHistory(c, question, persona) {
+  const name = agentOf(c.id).name;
   const turns = c.messages.filter((m) => !m.error && !m.pending && m.text).slice(-HISTORY_TURNS * 2);
-  let lines = turns.map((m) => (m.role === "user" ? "User: " : "Fira: ") + (m.role === "user" ? m.text : m.text.slice(0, HISTORY_ANSWER_CHARS)));
+  let lines = turns.map((m) => (m.role === "user" ? "User: " : name + ": ") + (m.role === "user" ? m.text : m.text.slice(0, HISTORY_ANSWER_CHARS)));
   while (lines.length && lines.join("\n").length > HISTORY_TOTAL_CHARS) lines.shift();
   const parts = [];
   if (persona) parts.push(persona);
@@ -244,10 +242,9 @@ function withHistory(c, question, persona) {
 async function sendMessage(text) {
   const c = chatById(state.current);
   if (!c || busy.has(c.id) || !text.trim()) return;
-  const prompt = withHistory(c, text.trim(), await loadPersona());
+  const prompt = withHistory(c, text.trim(), await loadPersona(agentOf(c.id)));
   const now = Date.now();
   c.messages.push({ role: "user", text: text.trim(), t: now });
-  if (c.auto) { c.title = text.trim().slice(0, 40); c.auto = false; }
   const reply = { role: "bot", text: "", t: Date.now(), pending: true };
   c.messages.push(reply);
   c.updated = now;
@@ -292,19 +289,13 @@ async function sendMessage(text) {
   save(); update();
 }
 
-$("new").onclick = $("new2").onclick = newChat;
 $("q").oninput = renderList;
 $("back").onclick = () => { state.current = null; save(); renderList(); renderChat(); };
-$("rename").onclick = () => {
-  const c = chatById(state.current);
-  const name = c && prompt("Nama percakapan", c.title);
-  if (name && name.trim()) { c.title = name.trim(); c.auto = false; save(); renderList(); renderChat(); }
-};
 $("del").onclick = () => {
   const c = chatById(state.current);
-  if (!c || !confirm(`Hapus "${c.title}"?`)) return;
-  state.chats = state.chats.filter((x) => x.id !== c.id);
-  state.current = null; save(); renderList(); renderChat();
+  if (!c || busy.has(c.id) || !confirm(`Bersihkan percakapan dengan ${agentOf(c.id).name}?`)) return;
+  c.messages = []; c.updated = 0;
+  save(); renderList(); renderChat();
 };
 $("form").onsubmit = (e) => { e.preventDefault(); const v = $("input").value; $("input").value = ""; $("input").style.height = ""; sendMessage(v); };
 $("input").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); $("form").requestSubmit(); } };
