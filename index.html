@@ -224,9 +224,20 @@ function newChat() {
   $("input").focus();
 }
 
+// The API answers each question on its own, so a follow-up carries the recent turns inside the question text.
+const HISTORY_TURNS = 6, HISTORY_ANSWER_CHARS = 500, HISTORY_TOTAL_CHARS = 2500;
+function withHistory(c, question) {
+  const turns = c.messages.filter((m) => !m.error && !m.pending && m.text).slice(-HISTORY_TURNS * 2);
+  let lines = turns.map((m) => (m.role === "user" ? "User: " : "Assistant: ") + (m.role === "user" ? m.text : m.text.slice(0, HISTORY_ANSWER_CHARS)));
+  while (lines.length && lines.join("\n").length > HISTORY_TOTAL_CHARS) lines.shift();
+  if (!lines.length) return question;
+  return `Earlier in this chat (background only, do not mention it):\n${lines.join("\n")}\n\nUser's new message: ${question}`;
+}
+
 async function sendMessage(text) {
   const c = chatById(state.current);
   if (!c || busy.has(c.id) || !text.trim()) return;
+  const prompt = withHistory(c, text.trim());
   const now = Date.now();
   c.messages.push({ role: "user", text: text.trim(), t: now });
   if (c.auto) { c.title = text.trim().slice(0, 40); c.auto = false; }
@@ -239,7 +250,7 @@ async function sendMessage(text) {
   const update = () => { if (state.current === c.id) { renderChat(); } renderList(); };
   try {
     // straight to islam-gpt.org (it allows any origin): POST the question, then read the answer as SSE
-    const q = await fetch(API + "/api/questions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceId: DEVICE_ID, question: text.trim() }) });
+    const q = await fetch(API + "/api/questions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceId: DEVICE_ID, question: prompt }) });
     if (!q.ok) throw new Error("HTTP " + q.status);
     const { shareId } = await q.json();
     if (!shareId) throw new Error("no shareId");
