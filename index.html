@@ -135,6 +135,15 @@ const dayLabel = (t) => {
   return diff === 0 ? "Hari ini" : diff === 1 ? "Kemarin" : d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
 };
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const API = "https://www.islam-gpt.org";
+// an anonymous id for this browser, made once
+const DEVICE_ID = (() => {
+  try {
+    let id = localStorage.getItem("islam-chat:device");
+    if (!id) { id = Array.from(crypto.getRandomValues(new Uint8Array(24)), (n) => "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[n % 62]).join(""); localStorage.setItem("islam-chat:device", id); }
+    return id;
+  } catch { return "anon" + Math.random().toString(36).slice(2, 20); }
+})();
 const busy = new Set(); // chat ids with an answer in flight
 
 function renderList() {
@@ -229,22 +238,28 @@ async function sendMessage(text) {
 
   const update = () => { if (state.current === c.id) { renderChat(); } renderList(); };
   try {
-    const res = await fetch("api/chat.php", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: text.trim() }) });
+    // straight to islam-gpt.org (it allows any origin): POST the question, then read the answer as SSE
+    const q = await fetch(API + "/api/questions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceId: DEVICE_ID, question: text.trim() }) });
+    if (!q.ok) throw new Error("HTTP " + q.status);
+    const { shareId } = await q.json();
+    if (!shareId) throw new Error("no shareId");
+    const res = await fetch(API + "/api/stream/" + encodeURIComponent(shareId), { headers: { Accept: "text/event-stream" } });
     if (!res.ok) throw new Error("HTTP " + res.status);
     const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
     let buf = "";
-    for (;;) {
+    read: for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
       buf += value;
-      const blocks = buf.split("\n\n");
+      const blocks = buf.split(/\r?\n\r?\n/);
       buf = blocks.pop();
       for (const blk of blocks) {
-        if (!blk.startsWith("data: ")) continue;
-        const ev = JSON.parse(blk.slice(6));
+        const data = blk.split(/\r?\n/).filter((l) => l.startsWith("data:")).map((l) => l.slice(5).replace(/^ /, "")).join("\n");
+        if (!data) continue;
+        const ev = JSON.parse(data);
         if (ev.type === "chunk") { reply.text += ev.text; reply.t = Date.now(); update(); }
         else if (ev.type === "references") reply.refs = typeof ev.data === "string" ? JSON.parse(ev.data) : ev.data;
-        else if (ev.type === "error") throw new Error(ev.message);
+        else if (ev.type === "done") { reader.cancel(); break read; }
       }
     }
     if (!reply.text) throw new Error("Tidak ada jawaban.");

@@ -8,8 +8,7 @@ Chat with the [islam-gpt.org](https://www.islam-gpt.org) API from the terminal.
 ```bash
 node bin/chat.js                    # interactive chat (/refs = sources, /exit = quit)
 node bin/chat.js "apa itu puasa"    # one question
-npm start                           # web UI at http://localhost:3000 (index.html + server.js)
-                                    # or with Apache: http://localhost/for-fun/islam/ (index.html + api/chat.php, no Node needed)
+open index.html                 # web UI (WhatsApp-like): static, calls islam-gpt.org from the browser
 npm test                            # unit tests + live tests against the API
 npm run test:offline                # unit tests only
 ```
