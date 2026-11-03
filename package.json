@@ -1,5 +1,5 @@
 {
-  "name": "islam",
+  "name": "faith",
   "version": "0.1.0",
   "description": "Chat with the islam-gpt.org API from the terminal (POST a question, read the answer as SSE)",
   "type": "module",
@@ -8,7 +8,7 @@
     "node": ">=20"
   },
   "bin": {
-    "islam": "bin/chat.js"
+    "faith": "bin/chat.js"
   },
   "scripts": {
     "chat": "node bin/chat.js",

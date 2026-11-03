@@ -1,4 +1,4 @@
-# islam
+# faith
 
 Chat with the [islam-gpt.org](https://www.islam-gpt.org) API from the terminal.
 
