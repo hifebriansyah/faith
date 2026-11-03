@@ -224,20 +224,27 @@ function newChat() {
   $("input").focus();
 }
 
+// persona.md is put in front of every question: the API has no memory, so a persona sent only once would be forgotten
+let personaPromise;
+const loadPersona = () => (personaPromise ??= fetch("persona.md").then((r) => (r.ok ? r.text() : "")).then((s) => s.trim()).catch(() => ""));
+
 // The API answers each question on its own, so a follow-up carries the recent turns inside the question text.
 const HISTORY_TURNS = 6, HISTORY_ANSWER_CHARS = 500, HISTORY_TOTAL_CHARS = 2500;
-function withHistory(c, question) {
+function withHistory(c, question, persona) {
   const turns = c.messages.filter((m) => !m.error && !m.pending && m.text).slice(-HISTORY_TURNS * 2);
-  let lines = turns.map((m) => (m.role === "user" ? "User: " : "Assistant: ") + (m.role === "user" ? m.text : m.text.slice(0, HISTORY_ANSWER_CHARS)));
+  let lines = turns.map((m) => (m.role === "user" ? "User: " : "Fira: ") + (m.role === "user" ? m.text : m.text.slice(0, HISTORY_ANSWER_CHARS)));
   while (lines.length && lines.join("\n").length > HISTORY_TOTAL_CHARS) lines.shift();
-  if (!lines.length) return question;
-  return `Earlier in this chat (background only, do not mention it):\n${lines.join("\n")}\n\nUser's new message: ${question}`;
+  const parts = [];
+  if (persona) parts.push(persona);
+  if (lines.length) parts.push(`Earlier in this chat (background only, do not mention it):\n${lines.join("\n")}`);
+  if (!parts.length) return question;
+  return `${parts.join("\n\n")}\n\nUser's ${lines.length ? "new" : "first"} message: ${question}`;
 }
 
 async function sendMessage(text) {
   const c = chatById(state.current);
   if (!c || busy.has(c.id) || !text.trim()) return;
-  const prompt = withHistory(c, text.trim());
+  const prompt = withHistory(c, text.trim(), await loadPersona());
   const now = Date.now();
   c.messages.push({ role: "user", text: text.trim(), t: now });
   if (c.auto) { c.title = text.trim().slice(0, 40); c.auto = false; }
