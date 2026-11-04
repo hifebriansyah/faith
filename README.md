@@ -79,3 +79,6 @@ The colours of the page come from the logo: its three ambers (`#f59e0b` the line
 | my bubble / their bubble / chat background | `#fadf8f` / `#ffffff` / `#f6efe3` | `#512409` / `#292524` / `#14110f` |
 
 The pairs were checked for WCAG contrast (text 4.5:1 or more on every surface and bubble, on-accent 8:1). The same colours are in `manifest.webmanifest` and the `theme-color` tags. Use the variables, not hex values, in new CSS.
+
+**Light / dark:** the page follows the system setting. The sun / moon button in the header (next to "Chat") switches it by hand, and the choice is remembered in `localStorage` (`islam-chat:theme`). A small script in `<head>` applies a saved choice before the first paint, so there is no flash of the other theme; `data-theme="light"|"dark"` on `<html>` is what the CSS reads, and the browser's address-bar colour follows. The dark colours are written twice in the CSS (once for the system setting, once for a chosen dark theme): `test/theme.test.js` fails if the two copies differ.
+
