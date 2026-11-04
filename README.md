@@ -15,6 +15,16 @@ npm run test:offline                # unit tests only
 
 Env: `ISLAM_DEVICE_ID` (default: a random id per run), `ISLAM_BASE_URL`. The API has no chat history field, so the web UI puts the last turns inside each question (index.html, withHistory). The CLI sends each question on its own.
 
+## CPU budget (why a request could fail with "layanan internet tidak bisa dihubungi")
+
+A Cloudflare Worker on the free plan gets about **10 ms of CPU per request** (waiting for islam-gpt does not count, processing does). A request that goes over is killed and the page sees a 503 without CORS headers, which the browser reports as a network or CORS error. This happened to roughly a quarter of the requests of the sister project `pro` (Cloudflare listed them as `exceededResources`, 18 to 46 ms of CPU); this Worker runs the same code and got the same fixes. Three things were responsible, all invisible in tests because they hit only a cold isolate:
+
+- **The date.** `toLocaleDateString` with a time zone costs 10 to 15 ms the first time it runs. "Today" now comes from a UTC offset in plain arithmetic (`TIMEZONE_OFFSET_MINUTES` in `worker/faith.jsonc`, 420 for Jakarta).
+- **Skill matching.** It built one Unicode regular expression per trigger word (59 of them) on every request, and for an ordinary message with no trigger in it that was 18 ms. One regex now normalises the message and the rest is substring checks.
+- **Reading the answer.** islam-gpt streams 70 to 1,800 tiny events and a 4 KB `references` block the page never shows; `chatBuffered` reads the whole stream as text and parses it in one pass (8 times cheaper), and skips the references unless asked.
+
+Result on the same request: 22 to 26 ms before, 4 to 5 ms after in a cold-process test, and 4.4 to 9.5 ms (median 5.8) per request on Cloudflare itself. `test/worker.test.js` has a guard that runs a typical request in a fresh process and fails above 8 ms, and `test/agent.test.js` has one for the skill matching. Request logging to Axiom is off (`AXIOM_LOG` "0") until the dataset exists: each log line is a subrequest that costs CPU and would only fail. If a Worker needs more headroom, Workers Paid ($5 a month) lifts the limit to 30 s of CPU.
+
 ## Internet access (web tools)
 
 islam-gpt.org has no tool calling, so `src/agent.js` runs a text loop: the model answers `TOOL: {"name":"web_search","args":{...}}`, we run it (`src/tools.js`: `web_search`, `fetch_url`, `show_image`) and ask again with the result inside (max 3 rounds). The globe button in the chat header turns it on.
@@ -31,7 +41,7 @@ node bin/proxy.js                          # the same /agent on 127.0.0.1:8787, 
 - One copy of the logic: the Worker, `bin/proxy.js` and the CLI all run `src/`; the deploy follows the Worker's imports and uploads those files. Nothing in `src/` may do I/O, timers or random values while loading (Workers refuse that; a test checks it).
 - **Search needs no key**: DuckDuckGo's HTML page (POST, then GET), then Wikipedia's search. `BRAVE_API_KEY` (paid) is optional: if it is set as a secret it goes first. Each result says which backend answered (`via`), and the log records it.
 - Limits (worker/faith.jsonc): 6 questions a minute per IP address, 60 a minute for everybody; only `faith.situs.id` and localhost origins may call it.
-- Request log in Axiom (dataset `faith.situs.id`, secret `AXIOM_TOKEN`): one line per question with who (IP, country, browser), which agent, the user's message, the tools used, steps, size and time. The answer text is not logged. The page tells the user (the globe's tooltip) that messages are logged.
+- Request log in Axiom (off for now: `AXIOM_LOG` "0" in `worker/faith.jsonc`; dataset `faith.situs.id`, secret `AXIOM_TOKEN`): one line per question with who (IP, country, browser), which agent, the user's message, the tools used, steps, size and time. The answer text is not logged. The page tells the user (the globe's tooltip) that messages are logged.
 - `npm test` also runs `test/worker.test.js`: the whole Worker in Node with a fake network.
 
 `show_image` finds one existing photo on Wikimedia Commons (free, no key, licensed) and shows it under the reply; the CLI prints `[image] title (credit) url`. It searches for a photo, it never generates one.
