@@ -36,6 +36,8 @@ node bin/proxy.js                          # the same /agent on 127.0.0.1:8787, 
 
 `show_image` finds one existing photo on Wikimedia Commons (free, no key, licensed) and shows it under the reply; the CLI prints `[image] title (credit) url`. It searches for a photo, it never generates one.
 
+Chat bubbles render Markdown like the document panel: `inline code`, fenced code blocks, lists, headings, quotes and tables (plain text with only inline marks keeps its line breaks). A message becomes one bubble per paragraph, except that blank lines inside a code fence do not split it and a list stays together; `test/bubbles.test.js` checks the splitting.
+
 ## Skills
 
 `skills/<name>/SKILL.md` follows the Agent Skills format: frontmatter (`name`, `description`, optional `triggers:` comma list) then plain-markdown instructions. The prompt lists only name and description; the model reads a skill with the `load_skill` tool. If the user's message contains a trigger word, the skill is put in the prompt up front instead of waiting for the model to choose it. Skills are read on every request, so edits apply without restarting the proxy.
@@ -56,9 +58,13 @@ Needs `pip install pillow`. Options: `--size`, `--quality`, `--focus` (where a c
 
 ## Logo and app icons
 
-`logo.svg` is the logo (a circuit line that forms an F, with two amber dots). `python3 tools/make_icons.py` (needs Pillow) draws it as `logo.png` (1024) and writes the icons in `icons/` (app icon 192 and 512, a maskable one inside the safe zone, the iOS apple-touch-icon, the 48 px favicon) plus `favicon.ico`. All of them have a transparent background. `manifest.webmanifest` and the `<head>` of `index.html` use them, so the page can be installed as an app (Chrome: install; iPhone: Add to Home Screen). Change the colours in `logo.svg` and in `tools/make_icons.py` together, then run the script.
+`logo.svg` is the logo (a circuit line that forms an F, with two amber dots). `python3 tools/make_icons.py` (needs Pillow) draws it as `logo.png` (1024) and writes the icons in `icons/` (app icon 192 and 512, a maskable one inside the safe zone, the iOS apple-touch-icon, the 48 px favicon), `favicon.ico` and `og-image.png`. All of them have a transparent background. `manifest.webmanifest` and the `<head>` of `index.html` use them, so the page can be installed as an app (Chrome: install; iPhone: Add to Home Screen). Change the colours in `logo.svg` and in `tools/make_icons.py` together, then run the script.
 
 **Cache busting:** browsers keep favicons for a very long time, so every icon address carries `?v=<hash of the file>`. `tools/stamp_icons.py` (standard library only) sets it: `make_icons.py` runs it on the repo files, and the Pages workflow runs it on the published copy on every deploy, so a changed icon always gets a new address even if nobody reran the script. The hash is from the file's content, so unchanged icons stay cached. A test fails when the repo's pages hold a stale hash.
+
+## Share image
+
+`og-image.png` (1200x630) is the picture shown when the address is shared. `tools/make_icons.py` draws it (the logo and the tagline on the dark page colour); the Open Graph and Twitter tags in `index.html` point at it with an absolute address (`https://faith.situs.id/og-image.png?v=<hash>`, stamped like the icons, so a changed picture is fetched again by chat apps and crawlers). The tagline is the same everywhere (description, share tags, manifest, the picture, `TAGLINE` in `make_icons.py`) and a test fails if one of them drifts. After a deploy, the preview can be checked with a link-preview tool (for example Facebook's Sharing Debugger or LinkedIn's Post Inspector); those caches are theirs, and the `?v=` is what makes them refetch.
 
 ## Palette
 

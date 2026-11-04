@@ -39,6 +39,18 @@ test("stamp_icons: adds ?v=<sha1 of the file>, replaces an old one, is repeatabl
   assert.match(again, new RegExp(`favicon\\.png\\?v=${png}`));
 });
 
+test("stamp_icons: the share image's absolute address on this site (host from CNAME) is stamped; other hosts are not", { skip: !hasPython && "no python3" }, () => {
+  const dir = site({
+    CNAME: "faith.example.org\n",
+    "og-image.png": "og-bytes",
+    "index.html": '<meta property="og:image" content="https://faith.example.org/og-image.png"><meta content="https://elsewhere.org/og-image.png"><meta content="https://faith.example.org/og-image.png?v=00000000">',
+    "manifest.webmanifest": "{}",
+  });
+  stamp(dir);
+  const v = sha8("og-bytes");
+  assert.equal(readFileSync(join(dir, "index.html"), "utf8"), `<meta property="og:image" content="https://faith.example.org/og-image.png?v=${v}"><meta content="https://elsewhere.org/og-image.png"><meta content="https://faith.example.org/og-image.png?v=${v}">`);
+});
+
 test("stamp_icons: fails loudly when an icon the page names is missing", { skip: !hasPython && "no python3" }, () => {
   const dir = site({ "index.html": '<link href="logo.svg">', "manifest.webmanifest": "{}" });
   assert.throws(() => stamp(dir), /logo\.svg/);
@@ -48,7 +60,7 @@ test("the repo's own pages carry the current hashes (run tools/make_icons.py or 
   const root = new URL("..", import.meta.url).pathname;
   for (const page of ["index.html", "manifest.webmanifest"]) {
     const text = readFileSync(join(root, page), "utf8");
-    for (const [, file, v] of text.matchAll(/(?<=["'])((?:logo\.svg|icons\/[a-z0-9-]+\.png))\?v=([0-9a-f]+)(?=["'])/g)) {
+    for (const [, file, v] of text.matchAll(/(?<=["']|faith\.situs\.id\/)((?:logo\.svg|og-image\.png|icons\/[a-z0-9-]+\.png))\?v=([0-9a-f]+)(?=["'])/g)) {
       assert.equal(v, createHash("sha1").update(readFileSync(join(root, file))).digest("hex").slice(0, 8), `${page}: ${file} has a stale ?v=`);
     }
   }

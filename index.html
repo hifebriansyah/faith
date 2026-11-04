@@ -3,8 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Chat</title>
+<title>Faith</title>
 <meta name="description" content="Chat with gurus and friends of different faiths">
+<link rel="canonical" href="https://faith.situs.id/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Faith">
+<meta property="og:title" content="Faith">
+<meta property="og:description" content="Chat with gurus and friends of different faiths">
+<meta property="og:url" content="https://faith.situs.id/">
+<meta property="og:image" content="https://faith.situs.id/og-image.png?v=0ece4b99">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Faith: Chat with gurus and friends of different faiths.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Faith">
+<meta name="twitter:description" content="Chat with gurus and friends of different faiths">
+<meta name="twitter:image" content="https://faith.situs.id/og-image.png?v=0ece4b99">
 <link rel="icon" href="logo.svg?v=8b0d9cd8" type="image/svg+xml">
 <link rel="icon" href="icons/favicon.png?v=d239021f" type="image/png" sizes="48x48">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=696cd758">
@@ -88,6 +102,23 @@
   .bubble.in { align-self: flex-start; background: var(--in); border-top-left-radius: 0; margin-top: 6px; }
   .bubble.cont { margin-top: 3px; border-top-left-radius: 8px; border-top-right-radius: 8px; }
   .bubble .text { white-space: pre-wrap; }
+  .bubble .text code { font: .9em ui-monospace, SFMono-Regular, Menlo, monospace; background: rgba(127, 127, 127, .2); padding: .08em .35em; border-radius: 4px; }
+  .bubble .text.rich { white-space: normal; min-width: 0; }
+  .bubble .text.rich > :first-child { margin-top: 0; }
+  .bubble .text.rich > :last-child { margin-bottom: 0; }
+  .bubble .text.rich p { margin: .3em 0; }
+  .bubble .text.rich h1, .bubble .text.rich h2, .bubble .text.rich h3, .bubble .text.rich h4, .bubble .text.rich h5, .bubble .text.rich h6 { font-size: 1.05em; line-height: 1.3; margin: .55em 0 .25em; }
+  .bubble .text.rich h1 { font-size: 1.15em; }
+  .bubble .text.rich ul, .bubble .text.rich ol { margin: .3em 0; padding-left: 1.4em; }
+  .bubble .text.rich li { margin: .1em 0; }
+  .bubble .text.rich pre { background: rgba(127, 127, 127, .18); padding: 8px 10px; border-radius: 6px; overflow-x: auto; max-width: 100%; margin: .4em 0; font-size: .9em; scrollbar-width: thin; }
+  .bubble .text.rich pre code { background: none; padding: 0; font-size: 1em; }
+  .bubble .text.rich blockquote { margin: .4em 0; padding: 0 .8em; border-left: 3px solid var(--accent); color: var(--muted); }
+  .bubble .text.rich hr { border: 0; border-top: 1px solid rgba(127, 127, 127, .4); margin: .6em 0; }
+  .bubble .text.rich .table-wrap { overflow-x: auto; margin: .4em 0; max-width: 100%; scrollbar-width: thin; }
+  .bubble .text.rich table { border-collapse: collapse; font-size: .92em; }
+  .bubble .text.rich th, .bubble .text.rich td { border: 1px solid rgba(127, 127, 127, .4); padding: 3px 8px; text-align: left; vertical-align: top; }
+  .bubble .text.rich th { font-weight: 600; }
   .bubble .text a.ext { color: var(--link); text-decoration: underline; }
   .bubble.pic { padding: 3px; }
   .bubble.pic img { display: block; max-width: 100%; max-height: 360px; border-radius: 6px; }
@@ -388,6 +419,7 @@ function renderMarkdown(md) {
         while (stack.length && indent < stack[stack.length - 1].indent) stack.pop();
         if (!stack.length || indent > stack[stack.length - 1].indent) {
           const list = el(/^\d/.test(it[2]) ? "ol" : "ul");
+          if (list.tagName === "OL" && parseInt(it[2], 10) > 1) list.start = parseInt(it[2], 10);
           (stack.length ? stack[stack.length - 1].li : root).append(list);
           stack.push({ indent, list, li: null });
         }
@@ -415,11 +447,48 @@ const ICON_SEARCH = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11"
 // Lucide check-check (read ticks)
 const ICON_CHECK_CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></svg>';
 
+// <md-bubbles>
+// A bubble shows Markdown like the document panel does: `code`, fenced blocks, lists, headings, quotes and tables. Plain text with only
+// inline marks (bold, italic, `code`, links) keeps its line breaks; a message with a block in it is drawn as blocks (renderMarkdown).
+const BLOCK_START = /^(?:\s*(?:```|~~~)|#{1,6}\s|\s*(?:[-*+]|\d+[.)])\s|\s*>|\s*([-*_])(?:\s*\1){2,}\s*$)/m;
+const TABLE_START = /^.*\|.*\n\s*\|?\s*:?-{2,}:?\s*(?:\|\s*:?-{2,}:?\s*)*\|?\s*$/m;
+const LIST_ITEM = /^\s*(?:[-*+]|\d+[.)])\s/;
+const hasBlocks = (text) => BLOCK_START.test(text) || TABLE_START.test(text);
+
+// A message becomes one bubble per paragraph, like separate WhatsApp messages. Blank lines inside a code fence do not split it, and a
+// list with blank lines between its items stays together.
+function splitBlocks(text) {
+  const parts = [];
+  let cur = [], fence = null;
+  for (const line of text.replace(/\r\n?/g, "\n").split("\n")) {
+    const f = /^\s*(```|~~~)/.exec(line);
+    if (f) fence = !fence ? f[1] : f[1] === fence ? null : fence;
+    if (!fence && !f && !line.trim()) {
+      if (cur.length) parts.push(cur.join("\n"));
+      cur = [];
+    } else cur.push(line);
+  }
+  if (cur.length) parts.push(cur.join("\n"));
+  return parts.reduce((out, part) => {
+    const prev = out[out.length - 1];
+    if (prev !== undefined && LIST_ITEM.test(part) && LIST_ITEM.test(prev)) out[out.length - 1] = prev + "\n" + part;
+    else out.push(part);
+    return out;
+  }, []).map((p) => p.replace(/^\n+|\s+$/g, "")).filter(Boolean);
+}
+// </md-bubbles>
+
+function fillBody(body, text) {
+  body.replaceChildren();
+  if (hasBlocks(text)) { body.classList.add("rich"); body.append(renderMarkdown(text)); }
+  else mdInline(body, text);
+}
+
 // one chat bubble: `text` is the message or one paragraph of it; only the last bubble of a message carries the time
 function bubble(m, text, { first = true, last = true } = {}) {
   const b = el("div", "bubble " + (m.role === "user" ? "out" : "in") + (m.error ? " err" : "") + (first ? "" : " cont"));
   const body = el("span", "text");
-  fmt(body, text);
+  fillBody(body, text);
   b.append(body);
   if (m.pending && !text) {
     body.replaceChildren();
@@ -436,7 +505,7 @@ function bubble(m, text, { first = true, last = true } = {}) {
 
 // a message with blank lines between paragraphs shows as one bubble per paragraph, like separate WhatsApp messages
 function bubbles(m) {
-  const parts = m.text.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
+  const parts = splitBlocks(m.text);
   if (parts.length < 2) return [bubble(m, m.text.trim())];
   return parts.map((p, i) => bubble(m, p, { first: i === 0, last: i === parts.length - 1 }));
 }

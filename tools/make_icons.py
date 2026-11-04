@@ -9,13 +9,14 @@ Needs Pillow (pip3 install pillow). Everything has a transparent background and 
   icons/icon-maskable-512.png   the logo inside the safe zone: Android crops it to a circle or squircle
   icons/apple-touch-icon.png    180x180 (iOS puts black behind transparent icons; amber reads well on it)
   icons/favicon.png             48x48, and favicon.ico (16, 32, 48) for browsers that ask for /favicon.ico
+  og-image.png                  1200x630, the picture shown when the address is shared (the logo and the tagline on the dark page colour)
 The names stay the same: index.html and manifest.webmanifest point at them, with ?v=<hash of the file> added by tools/stamp_icons.py (cache busting: browsers keep old favicons). The shapes and colours are in logo.svg: change both together.
 """
 from __future__ import annotations
 
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from stamp_icons import stamp  # tools/stamp_icons.py: ?v=<hash> on the icon addresses (cache busting)
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -25,6 +26,10 @@ DOTS = [((55, 170), 12, "#fbbf24"), ((100, 140), 10, "#d97706")]  # centre, radi
 BOX = (43, 32, 163, 182)  # the drawing's bounding box, strokes and dots included
 CENTRE = ((BOX[0] + BOX[2]) / 2, (BOX[1] + BOX[3]) / 2)
 SS = 4  # supersampling, for smooth edges
+TAGLINE = ["Chat with gurus and friends", "of different faiths"]  # the same words as the description in index.html and manifest.webmanifest, in two lines
+PAGE = "#1c1917"  # the dark page colour behind the share image
+FONTS = [("/System/Library/Fonts/HelveticaNeue.ttc", 12), ("/System/Library/Fonts/Helvetica.ttc", 0)]  # Helvetica Neue Thin (face 12), else Helvetica
+TRACKING = 8  # extra pixels between the letters of the tagline
 
 
 def draw(size: int, padding: float | None = None) -> Image.Image:
@@ -54,6 +59,40 @@ def draw(size: int, padding: float | None = None) -> Image.Image:
     return img.resize((size, size), Image.LANCZOS)
 
 
+def tagline_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    for path, index in FONTS:
+        if Path(path).exists():
+            return ImageFont.truetype(path, size, index=index)
+    return ImageFont.load_default(size)  # not macOS: a plain font, the picture still works
+
+
+def tracked(d: ImageDraw.ImageDraw, text: str, cx: float, baseline: float, font, fill: str, spacing: float) -> None:
+    """Draws `text` centred on cx with `spacing` extra pixels between the letters."""
+    widths = [font.getlength(c) for c in text]
+    x = cx - (sum(widths) + spacing * (len(text) - 1)) / 2
+    for c, cw in zip(text, widths):
+        d.text((x, baseline), c, font=font, fill=fill, anchor="ls")
+        x += cw + spacing
+
+
+def og_image() -> Image.Image:
+    """1200x630, all centred: the logo, then the tagline, on the dark page colour with soft amber glows behind."""
+    w, h = 1200, 630
+    glows = Image.new("RGB", (w, h), PAGE)
+    d = ImageDraw.Draw(glows)
+    d.ellipse([-220, -280, 540, 380], fill="#7c2d12")
+    d.ellipse([720, 140, 1400, 780], fill="#78350f")
+    d.ellipse([260, 440, 900, 920], fill="#451a03")
+    img = Image.blend(Image.new("RGB", (w, h), PAGE), glows.filter(ImageFilter.GaussianBlur(120)), 0.7)
+    logo = draw(250, padding=0)  # the drawing fills the height: 200 wide, 250 tall
+    img.paste(logo, ((w - logo.width) // 2, 62), logo)
+    d = ImageDraw.Draw(img)
+    font = tagline_font(52)
+    for i, line in enumerate(TAGLINE):
+        tracked(d, line, w // 2, 432 + i * 62, font, "#fef3c7", TRACKING)
+    return img
+
+
 def main() -> None:
     out = ROOT / "icons"
     out.mkdir(exist_ok=True)
@@ -65,8 +104,9 @@ def main() -> None:
     draw(180, padding=0.1).save(out / "apple-touch-icon.png", optimize=True)
     draw(48, padding=0.04).save(out / "favicon.png", optimize=True)
     draw(256, padding=0.04).save(ROOT / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
+    og_image().save(ROOT / "og-image.png", optimize=True)
     stamp(ROOT)
-    print("logo.png, icons/ (icon-192, icon-512, icon-maskable-512, apple-touch-icon, favicon.png) and favicon.ico written; ?v= updated in index.html and manifest.webmanifest")
+    print("logo.png, icons/ (icon-192, icon-512, icon-maskable-512, apple-touch-icon, favicon.png) and favicon.ico, og-image.png written; ?v= updated in index.html and manifest.webmanifest")
 
 
 if __name__ == "__main__":
