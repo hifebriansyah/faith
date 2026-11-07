@@ -64,3 +64,31 @@ test("the agent uses it by default: a dead islam-gpt still gives the visitor a r
   assert.equal(res.text, "Iman adalah keyakinan.");
   assert.deepEqual(chunks, ["Iman adalah keyakinan."]);
 });
+
+import { readFileSync } from "node:fs";
+import { parseAgentBody, runAgent } from "../src/serve.js";
+
+test("the request says which source the visitor chose; quran-gpt asks only quran-gpt, the default asks islam-gpt first", async () => {
+  assert.equal(parseAgentBody(JSON.stringify({ question: "x" })).provider, "islam");
+  assert.equal(parseAgentBody(JSON.stringify({ question: "x", provider: "quran" })).provider, "quran");
+  assert.equal(parseAgentBody(JSON.stringify({ question: "x", provider: "bukan-sumber" })).provider, "islam", "anything else is the default");
+  const events = [];
+  const realFetch = globalThis.fetch, urls = [];
+  globalThis.fetch = async (url, init) => { urls.push(String(url)); if (String(url).includes("quran-gpt")) return new Response(JSON.stringify({ response: "Jawaban dari quran." }), { status: 200 }); throw new Error("islam-gpt must not be asked"); };
+  try {
+    await runAgent(parseAgentBody(JSON.stringify({ question: "Apa itu iman?", provider: "quran" })), { send: (e) => events.push(e) });
+  } finally { globalThis.fetch = realFetch; }
+  assert.deepEqual(urls, ["https://quran-gpt.netlify.app/api/gemini"]);
+  assert.equal(events.find((e) => e.type === "chunk").text, "Jawaban dari quran.");
+  assert.equal(events.at(-1).type, "done");
+});
+
+test("the page: a source menu, quran-gpt and the internet go through the Worker, and a silent islam-gpt is not waited for", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(html, /<select id="provider" class="provider"[^>]*><option value="islam">islam-gpt<\/option><option value="quran">quran-gpt<\/option><\/select>/);
+  assert.match(html, /const useWorker = webOn \|\| provider === "quran"/);
+  assert.match(html, /message: text\.trim\(\), provider \}\)/, "the Worker is told which source");
+  assert.match(html, /localStorage\.setItem\("islam-chat:provider", provider\)/, "the choice is remembered");
+  assert.match(html, /setTimeout\(\(\) => silence\.abort\(\), FIRST_BYTE_MS\)/);
+  assert.match(html, /islam-gpt tidak menjawab\. Pilih quran-gpt di menu/, "the visitor is told what to do");
+});

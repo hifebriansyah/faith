@@ -3,6 +3,9 @@
 //   {type:"tool",phase:"start"|"end",name,args,error?}  {type:"image",...}  {type:"document",title,markdown}  {type:"chunk",text}
 //   {type:"references",data}  {type:"error",message}  {type:"done"}
 import { agentChat } from "./agent.js";
+import { quranChat } from "./quran.js";
+
+export const PROVIDERS = ["islam", "quran"];
 
 export const MAX_BODY = 20_000;
 
@@ -18,6 +21,7 @@ export function parseAgentBody(text) {
     deviceId: typeof b.deviceId === "string" ? b.deviceId.slice(0, 64) : undefined,
     persona: typeof b.persona === "string" ? b.persona.slice(0, 6000) : "",
     message: typeof b.message === "string" ? b.message.slice(0, 2000) : "", // the user's latest text: the skills' trigger words are matched on it
+    provider: PROVIDERS.includes(b.provider) ? b.provider : "islam", // the answer source the visitor chose: islam-gpt.org (with quran-gpt as its fallback), or quran-gpt.netlify.app only
   };
 }
 
@@ -32,7 +36,8 @@ export async function runAgent(body, { send, signal, env, skills, timeZone, chat
   const summary = { tools: [], steps: 0, documents: 0, images: 0, chars: 0 };
   try {
     const res = await agentChat(body.question, {
-      deviceId: body.deviceId, message: body.message, persona: body.persona, env, skills, timeZone, signal, chatFn,
+      deviceId: body.deviceId, message: body.message, persona: body.persona, env, skills, timeZone, signal,
+      chatFn: chatFn ?? (body.provider === "quran" ? quranChat : undefined), // the visitor chose quran-gpt: no waiting for islam-gpt first; otherwise the default (islam-gpt, then quran-gpt)
       onDocument: (d) => { summary.documents++; send({ type: "document", ...d }); },
       onToolStart: ({ name, args }) => send({ type: "tool", phase: "start", name, args }),
       onChunk: (text) => { summary.chars += text.length; send({ type: "chunk", text }); },
