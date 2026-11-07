@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { avatarUrl, fetchUser, loginUrl, onSitus, signOut } from "../account/account.js";
+import { adoptToken, avatarUrl, fetchUser, isLocalHost, loginUrl, onSitus, signOut } from "../account/account.js";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const USER = { name: "Budi Santoso", email: "budi@contoh.id", picture: "https://lh3.googleusercontent.com/a/budi" };
@@ -32,4 +32,18 @@ test("the page mounts it before the theme button, and the site ships the module"
   assert.match(html, /account\.mount\(document\.getElementById\("theme"\)\)/);
   assert.match(html, /\.acct-menu \{ position: fixed/);
   assert.match(readFileSync(new URL("../.github/workflows/static.yml", import.meta.url), "utf8"), /cp -r personas icons account _site\//);
+});
+
+test("development: localhost is a place for the button too; the token the sign-in hands back is kept (and only a token), and /me is read with it", async () => {
+  assert.ok(isLocalHost("localhost") && isLocalHost("127.0.0.1") && !isLocalHost("faith.situs.id") && !isLocalHost("localhost.evil.com"));
+  const store = new Map(); const storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
+  const replaced = [];
+  assert.equal(adoptToken({ hash: "#situs_token=abc.def-1", pathname: "/for-fun/faith/", search: "?x=1" }, storage, { replaceState: (...a) => replaced.push(a) }), true);
+  assert.equal(store.get("situs:session-token"), "abc.def-1");
+  assert.deepEqual(replaced[0], [null, "", "/for-fun/faith/?x=1"], "the token leaves the address");
+  assert.equal(adoptToken({ hash: "#proyek/abc", pathname: "/", search: "" }, storage, null), false);
+  assert.equal(adoptToken({ hash: "#situs_token=<script>", pathname: "/", search: "" }, storage, null), false);
+  let init;
+  await fetchUser(async (url, i) => { init = i; return new Response(JSON.stringify({ user: USER })); }, "abc.def-1");
+  assert.deepEqual(init, { headers: { Authorization: "Bearer abc.def-1" } }, "no cookie to send on localhost: the token is");
 });
