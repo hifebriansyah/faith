@@ -1,6 +1,6 @@
-// Tool loop over a text-only API: islam-gpt.org has no function calling, so the prompt teaches the model a
+// Tool loop over a text-only API (islam-gpt.org, or quran-gpt.netlify.app when it does not answer: src/answer.js): neither has function calling, so the prompt teaches the model a
 // one-line protocol (TOOL: {"name":...,"args":{...}}), we run the tool, and ask again with the result inside.
-import { chatBuffered as islamChat } from "./islam.js";
+import { answerChat } from "./answer.js";
 import { TOOLS } from "./tools.js";
 import { matchingSkills, skillTool } from "./skills.js";
 
@@ -15,7 +15,7 @@ const SKILL_CHARS = 8000; // instructions are not search results: do not cut the
  */
 export function today(timeZone) {
   if (typeof timeZone === "number") return new Date(Date.now() + (Number.isFinite(timeZone) ? timeZone : 0) * 60_000).toISOString().slice(0, 10); // NaN (a bad setting) is UTC, never an error
-  return new Date().toLocaleDateString("en-CA", { timeZone });
+  return new Date(Date.now()).toLocaleDateString("en-CA", { timeZone }); // Date.now(), not the bare clock, so a test (or a faked clock) moves both paths
 }
 
 export function toolInstructions(tools = TOOLS, skills = new Map(), timeZone) {
@@ -58,7 +58,7 @@ export function extractDocuments(reply) {
  * onTool({name,args,result|error}) after, onDocument({title,markdown}) for each document in the answer, plus the islam.js options.
  * Resolves to { text, references, images, documents, steps }.
  */
-export async function agentChat(question, { onChunk, onTool, onToolStart, onDocument, skills = new Map(), env, timeZone, message = "", persona = "", tools = TOOLS, chatFn = islamChat, maxSteps = MAX_STEPS, ...opts } = {}) {
+export async function agentChat(question, { onChunk, onTool, onToolStart, onDocument, skills = new Map(), env, timeZone, message = "", persona = "", tools = TOOLS, chatFn = answerChat, maxSteps = MAX_STEPS, ...opts } = {}) {
   if (skills.size && !tools.load_skill) tools = { ...tools, load_skill: skillTool(skills) };
   const images = [];
   const documents = [];
